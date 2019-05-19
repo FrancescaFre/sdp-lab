@@ -1,0 +1,42 @@
+// per compilare
+//protoc --proto_path=proto/ --java_out=./ proto/student.proto
+
+syntax = "proto3";
+
+package ProtoBuf;
+
+option java_package = "ProtoBuf";
+//è il nome con la quale mi riferisco a questa classe quando è da importare
+option java_outer_classname = "ProtoBuf_Esercizio";
+
+message Data{
+    int32 giorno = 1;
+    int32 mese = 2;
+    int32 anno = 3;
+}
+
+message Esame{
+    string nome_esame = 1;
+    int32 voto = 2;
+    Data verbalizzazione = 3;
+}
+
+message Residenza {
+    string Citta = 1;
+    string via_viale = 2;
+    int32 numero_civico = 3;
+}
+
+message Studente{
+    string nome = 1;
+    string cognome = 2;
+    int32 anno_nascita = 3;
+    Residenza residenza = 4;
+    repeated Esame lista_esami = 5;
+}
+
+message Risposta{
+    string ack = 1;
+}
+
+

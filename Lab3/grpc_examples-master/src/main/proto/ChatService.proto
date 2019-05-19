@@ -1,0 +1,22 @@
+syntax = "proto3";
+package com.example.chat;
+
+// Request payload
+message ChatMessage {
+    // Each message attribute is strongly typed.
+    // You also must assign a "tag" number.
+    // Each tag number is unique within the message.
+    string from = 1;
+    // This defines a strongly typed list of String
+    string message = 2;
+
+    // There are many more basics types, like Enum, Map
+    // See https://developers.google.com/protocol-buffers/docs/proto3
+    // for more information.
+}
+
+// Defining a Service, a Service can have multiple RPC operations
+service ChatService {
+
+    rpc chat(stream ChatMessage) returns (stream ChatMessage);
+}

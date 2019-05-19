@@ -1,0 +1,14 @@
+
+
+###### IntelliJ (JAVA)
+# User-specific stuff
+
+.idea/
+out/
+target/
+*.iml
+Need/
+
+#java class
+*.class
+
