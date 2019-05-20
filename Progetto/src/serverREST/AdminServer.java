@@ -25,6 +25,9 @@ public class AdminServer {
         return Response.ok(f).build();
     }
 
+    //gestine errori
+//https://jersey.github.io/documentation/latest/representations.html
+
 //+++++++++++++++++//
 //      Casa       //
 //+++++++++++++++++//
@@ -34,7 +37,7 @@ public class AdminServer {
     public Response rm_house(@PathParam("id") int id) {
         if (Residence.getInstance().rm_house_to_list(id))
             return Response.ok().build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato nella residenza, non è possibile rimoverla").build();
     }
 
     @Path("house/rm/")
@@ -43,7 +46,7 @@ public class AdminServer {
     public Response rm_house(House h) {
         if (Residence.getInstance().rm_house_to_list(h))
             return Response.ok().build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato nella residenza, non è possibile rimovere la casa").build();
     }
 
     //---------------------------- Aggiunta casa
@@ -54,7 +57,7 @@ public class AdminServer {
     public Response add_house(House h) {
         if (Residence.getInstance().add_house_to_list(h))
             return Response.ok(Residence.getInstance().houses).build(); //elenco delle case
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo già esistente nella residenza, impossibile aggiungere la casa").build();
     }
 
     //---------------------------- Ricezione valori
@@ -64,7 +67,7 @@ public class AdminServer {
     public Response add_values(SensorValue sn) {
         if (Residence.getInstance().updateStatistics(sn))
             return Response.ok().build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("valori non validi").build();
     }
 
     @Path("house/values/{id: [0-9]*}") //per la casa
@@ -73,7 +76,7 @@ public class AdminServer {
     public Response add_values(SensorValue sn, @PathParam("id") int id) {
         if (Residence.getInstance().updateStatistics(id, sn))
             return Response.ok().build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato nella residenza, impossibile aggiornare i valori").build();
     }
 
 
@@ -87,7 +90,7 @@ public class AdminServer {
     public Response get_stat(@PathParam("n") int n) {
         if (Residence.getInstance().statistics(n) != null)
             return Response.ok(Residence.getInstance().statistics(n)).build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Errore sconosciuto").build();
     }
 
     @Path("admin/stat/{n: [0-9]*}/{id: [0-9]*}") //per la casa
@@ -96,7 +99,7 @@ public class AdminServer {
     public Response get_stat(@PathParam("n") int n, @PathParam("id") int id) {
         if (Residence.getInstance().statistics(id, n) != null)
             return Response.ok(Residence.getInstance().statistics(id, n)).build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato, impossibile ottenere le statistiche").build();
     }
 
     //---------------------------- nStat Deviazione Standard e Media di una casa o residenza
@@ -106,7 +109,7 @@ public class AdminServer {
     public Response get_mean_stDev(@PathParam("n") int n) {
         if (Residence.getInstance().get_mean_stdDeviation(n) != null)
             return Response.ok(Residence.getInstance().get_mean_stdDeviation(n)).build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Errore sconosciuto").build();
     }
 
     @Path("admin/mean_stdev/{n: [0-9]*}/{id: [0-9]*}") //per la casa
@@ -115,7 +118,7 @@ public class AdminServer {
     public Response get_mean_stDev(@PathParam("n") int n, @PathParam("id") int id) {
         if (Residence.getInstance().get_mean_stdDeviation(id, n) != null)
             return Response.ok(Residence.getInstance().get_mean_stdDeviation(id, n)).build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato, impossibile ottenere le statistiche").build();
 
     }
 
@@ -126,7 +129,7 @@ public class AdminServer {
     public Response getHouseList() {
         if (Residence.getInstance().houses.size() > 0)
             return Response.ok(Residence.getInstance().houses).build();
-        else return Response.status(Response.Status.NOT_FOUND).build();
+        else return Response.status(Response.Status.NOT_FOUND).entity("Non sono registrate case nella residenza").build();
     }
 
 }

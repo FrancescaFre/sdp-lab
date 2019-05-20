@@ -61,9 +61,9 @@ public class HouseCli extends Thread{
         //Aggiungo la casa al server
         //se non va, faccio riaprire il client per fargli cambiare id
         if (!add_to_server(target, house, houses_list))
-        {   System.err.println("Impossibile aggiungere la casa al server, ID già utilizzato\nRiavviare il programma usando un identificativo differente");
-            close();
-        };
+            close(client);
+
+
 
 
     }
@@ -72,7 +72,12 @@ public class HouseCli extends Thread{
 
         Response response = target.path("server").path("/house/add").request(MediaType.APPLICATION_JSON).post(Entity.entity(house, MediaType.APPLICATION_JSON));
         if (response.getStatus() != 200)
+        {
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
+            System.err.println("Riavviare il programma usando un identificativo differente");
+
             return false;
+        }
 
         houses_list = new ArrayList<House>(Arrays.asList(response.readEntity(House[].class)));
         return true;
@@ -81,11 +86,11 @@ public class HouseCli extends Thread{
     private static boolean rm_from_server(WebTarget target, House house) {
         Response response = target.path("server").path("/house/rm").request().post(Entity.entity(house, MediaType.APPLICATION_JSON));
         if (response.getStatus() != 200){
-            System.err.println("Rimozione non avvenuta. ERRORE "+response.getStatus());
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
             return false;
         }
-            System.out.println("Rimozione avvenuta con successo");
 
+        System.out.println("Rimozione avvenuta con successo");
         return true;
     }
 
@@ -94,15 +99,17 @@ public class HouseCli extends Thread{
         if (coordinator) {
             response_residence = target.path("server").path("/house/values").request().post(Entity.entity(sv_r, MediaType.APPLICATION_JSON));
             if (response_residence.getStatus()!=200)
-                System.err.println("Non è stato possibile aggiornare i valori nel server");
+                System.err.println(response_residence.readEntity(String.class)+" - " + response_residence.getStatus());
         }
         Response response = target.path("server").path("/house/values").path(house.id+"").request().post(Entity.entity(sv_h, MediaType.APPLICATION_JSON));
         if (response.getStatus() != 200)
-            System.err.println("Non è stato possibile aggiornare i valori nel server");
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
 
     }
 
-    private static void close(){}
+    private static void close(Client c){
+        c.close();
+    }
 
 
     private static URI getBaseURI(String ip_server, int port_server) {

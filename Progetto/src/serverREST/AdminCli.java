@@ -94,8 +94,9 @@ public class AdminCli {
                     mean_stddev_residence(target);
                     break;
                 case 6:
-                    input.close();
                     System.out.println("Chiusura del client amministratore");
+                    client.close();
+                    input.close();
                     return;
             }
             select = 0;
@@ -105,11 +106,11 @@ public class AdminCli {
     private static void house_list(WebTarget target)
     {
         Response response = target.path("server").path("admin/house_list").request().accept(MediaType.APPLICATION_JSON).get();
-        System.out.println("xXx");
         House[] houses = response.readEntity(House[].class);
-        System.out.println("xxx");
+
         if (response.getStatus() != 200 ){
-            System.err.println("Non ci sono case registrate nella residenza");
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
+            return;
         }
 
         for (House h:houses)
@@ -130,13 +131,14 @@ public class AdminCli {
 
         if (response.getStatus() != 200)
         {
-            System.err.println("Identificativo non trovato, ERRORE" + response.getStatus());
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
             return;
         }
 
         SensorValue[] values = response.readEntity(SensorValue[].class);
         if (values.length == 0){
             System.err.println("Non ci sono valori raccolti sulla casa");
+            return;
         }
 
         System.out.println("Raccolta di "+input[1]+" valori della casa con identificativo "+input[0]+"\n");
@@ -152,8 +154,15 @@ public class AdminCli {
         Response response = target.path("server").path("stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
         SensorValue[] values = response.readEntity(SensorValue[].class);
 
+        if (response.getStatus() != 200)
+        {
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
+            return;
+        }
+
         if (values.length == 0){
             System.err.println("Non ci sono valori raccolti sulla residenza");
+            return;
         }
 
         System.out.println("Raccolta di "+n+" valori della residenza\n");
@@ -171,14 +180,16 @@ public class AdminCli {
         Response response = target.path("server").path("/mean_stDev").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
         if (response.getStatus() != 200)
         {
-            System.err.println("Identificativo non trovato. ERRORE "+response.getStatus());
+            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
             return;
         }
 
         Double[] m_stdD = response.readEntity(Double[].class);
-        if (m_stdD[0] == 0 && m_stdD[1] == 0){
+        if (m_stdD == null || (m_stdD[0] == 0 && m_stdD[1] == 0)){
             System.err.println("Non ci sono abbastanza misurazioni per generare una media e una deviazione standard");
+            return;
         }
+
         System.out.println("Raccolta di "+input[1]+" valori della casa con identificativo "+input[0]+"\n"+
                 "--------------Media: "+m_stdD[0]+"\n"+
                 "Deviazione Standard: "+m_stdD[1]+"\n");
@@ -193,8 +204,9 @@ public class AdminCli {
         Response response = target.path("server").path("/mean_stDev").path(n).request().accept(MediaType.APPLICATION_JSON).get();
         Float[] m_stdD = response.readEntity(Float[].class);
 
-        if (m_stdD[0] == 0 && m_stdD[1] == 0){
+        if (m_stdD == null || (m_stdD[0] == 0 && m_stdD[1] == 0)){
             System.err.println("Non ci sono abbastanza misurazioni per generare una media e una deviazione standard");
+            return;
         }
 
         System.out.println("Raccolta di "+n+" valori della residenza\n"+
