@@ -103,7 +103,7 @@ public class AdminServer {
     }
 
     //---------------------------- nStat Deviazione Standard e Media di una casa o residenza
-    @Path("admin/mean_stDev/{n: [0-9]*}") //per la residenza
+    @Path("admin/mean_stdev/{n: [0-9]*}") //per la residenza
     @GET
     @Produces({"application/json"})
     public Response get_mean_stDev(@PathParam("n") int n) {
@@ -128,7 +128,7 @@ public class AdminServer {
     @Produces({"application/json"})
     public Response getHouseList() {
         if (Residence.getInstance().houses.size() > 0)
-            return Response.ok(Residence.getInstance().houses).build();
+            return Response.ok(Residence.getInstance().houses.values()).build();
         else return Response.status(Response.Status.NOT_FOUND).entity("Non sono registrate case nella residenza").build();
     }
 

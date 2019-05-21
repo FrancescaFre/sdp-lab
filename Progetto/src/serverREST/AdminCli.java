@@ -6,6 +6,7 @@ import org.glassfish.jersey.client.ClientConfig;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import java.util.Hashtable;
 import java.util.Scanner;
 
 import javax.ws.rs.client.Client;
@@ -23,13 +24,15 @@ public class AdminCli {
 
         int select = 0;
         String string_container;
-
         input = new Scanner(System.in);
 
 
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
-        WebTarget target = client.target(getBaseURI());
+        WebTarget target;
+
+        boolean b = false;
+        target = client.target(getBaseURI());
 
         /**
          interfaccia per scegliere
@@ -45,7 +48,7 @@ public class AdminCli {
          * **/
 
         while (true) {
-            Boolean b = false;
+            b = false;
             do {
                 System.out.print(
                         "Premi il numero corrispondente per scegliere un'opzione: \n" +
@@ -54,7 +57,7 @@ public class AdminCli {
                                 "3 ➝ Visualizza le statistiche di consumo della residenza\n" +
                                 "4 ➝ Visualizza la deviazione standard e la media di cosumo di una casa specifica\n" +
                                 "5 ➝ Visualizza la deviazione standard e la media di cosumo della residenza\n" +
-                                "6 ➝ Visualizza la deviazione standard e la media di cosumo della residenza\n"+
+                                "6 ➝ Chiudi il client amministratore\n"+
                                 "Inserisci: "
                 );
 
@@ -63,8 +66,8 @@ public class AdminCli {
                     select = Integer.parseInt(string_container);
                     b = true;
                 }
-                else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero tra quelli elencati\n");
-                System.out.println("++++++ "+select);
+                else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero tra quelli elencati");
+
             } while (!b);
 
             //interfaccia per scegliere
@@ -94,9 +97,7 @@ public class AdminCli {
                     mean_stddev_residence(target);
                     break;
                 case 6:
-                    System.out.println("Chiusura del client amministratore");
-                    client.close();
-                    input.close();
+                    close(client);
                     return;
             }
             select = 0;
@@ -106,12 +107,16 @@ public class AdminCli {
     private static void house_list(WebTarget target)
     {
         Response response = target.path("server").path("admin/house_list").request().accept(MediaType.APPLICATION_JSON).get();
-        House[] houses = response.readEntity(House[].class);
+
 
         if (response.getStatus() != 200 ){
             System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
             return;
         }
+
+        House[] houses = response.readEntity(House[].class);
+        if (houses.length ==0)
+            return;
 
         for (House h:houses)
             System.out.println(
@@ -127,7 +132,7 @@ public class AdminCli {
         //[0] = id, [1] = n
         String[] input = getInputHouse();
 
-        Response response = target.path("server").path("stat").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = target.path("server").path("admin/stat").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
 
         if (response.getStatus() != 200)
         {
@@ -141,7 +146,7 @@ public class AdminCli {
             return;
         }
 
-        System.out.println("Raccolta di "+input[1]+" valori della casa con identificativo "+input[0]+"\n");
+        System.out.println("Raccolta di "+ values.length+" valori della casa con identificativo "+input[0]);
         for (SensorValue sv : values){
             System.out.println("<"+sv.time+">: "+sv.value);
         }
@@ -151,7 +156,7 @@ public class AdminCli {
     private static void statistics_residence(WebTarget target)
     {
         String n = getInputResidence();
-        Response response = target.path("server").path("stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = target.path("server").path("admin/stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
         SensorValue[] values = response.readEntity(SensorValue[].class);
 
         if (response.getStatus() != 200)
@@ -165,7 +170,7 @@ public class AdminCli {
             return;
         }
 
-        System.out.println("Raccolta di "+n+" valori della residenza\n");
+        System.out.println("Raccolta di "+values.length+" valori della residenza");
         for (SensorValue sv : values){
             System.out.println("<"+sv.time+">: "+sv.value);
         }
@@ -177,7 +182,7 @@ public class AdminCli {
         //[0] = id, [1] = n
         String[] input = getInputHouse();
 
-        Response response = target.path("server").path("/mean_stDev").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = target.path("server").path("admin/mean_stdev").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
         if (response.getStatus() != 200)
         {
             System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
@@ -190,7 +195,7 @@ public class AdminCli {
             return;
         }
 
-        System.out.println("Raccolta di "+input[1]+" valori della casa con identificativo "+input[0]+"\n"+
+        System.out.println("Informazioni calcolate su "+input[1]+" valori della casa con identificativo "+input[0]+"\n"+
                 "--------------Media: "+m_stdD[0]+"\n"+
                 "Deviazione Standard: "+m_stdD[1]+"\n");
     }
@@ -201,7 +206,7 @@ public class AdminCli {
     {
         String n = getInputResidence();
 
-        Response response = target.path("server").path("/mean_stDev").path(n).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = target.path("server").path("admin/mean_stdev").path(n).request().accept(MediaType.APPLICATION_JSON).get();
         Float[] m_stdD = response.readEntity(Float[].class);
 
         if (m_stdD == null || (m_stdD[0] == 0 && m_stdD[1] == 0)){
@@ -209,7 +214,7 @@ public class AdminCli {
             return;
         }
 
-        System.out.println("Raccolta di "+n+" valori della residenza\n"+
+        System.out.println("Informazioni calcolate su "+n+" valori della residenza\n"+
                 "--------------Media: "+m_stdD[0]+"\n"+
                 "Deviazione Standard: "+m_stdD[1]+"\n");
     }
@@ -225,9 +230,9 @@ public class AdminCli {
             n = input.nextLine();
             if (n.matches("^\\d+$"))
                 b = true;
-            else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido\n");
+            else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido");
 
-        }while(b);
+        }while(!b);
 
         return n;
     }
@@ -242,8 +247,8 @@ public class AdminCli {
             ret[0] = input.nextLine();
             if (ret[0].matches("^\\d+$"))
                 b = true;
-            else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido\n");
-        } while (b);
+            else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido");
+        } while (!b);
 
         b = false;
         do {
@@ -251,8 +256,8 @@ public class AdminCli {
             ret[1] = input.nextLine();
             if (ret[1].matches("^\\d+$"))
                 b = true;
-            else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido\n");
-        } while (b);
+            else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido");
+        } while (!b);
 
         return ret;
     }
@@ -266,4 +271,19 @@ public class AdminCli {
 
         return uri;
     }
+
+    private static void waitSec()
+    {
+        try {
+            Thread.sleep(5000);
+        }catch (InterruptedException ie) {System.err.println("errore nella sleep di riconnessione");}
+    }
+
+    private static void close(Client client)
+    {
+        System.out.println("Chiusura del client amministratore");
+        client.close();
+        input.close();
+    }
+
 }

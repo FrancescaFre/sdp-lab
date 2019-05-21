@@ -41,7 +41,8 @@ public class Residence {
     public synchronized boolean add_house_to_list (House h){
         if (!houses.containsKey(h.id))
         {
-            houses.put(h.id, h);
+            House hh = new House(h.id, h.port);
+            houses.put(hh.id, hh);
             return true;
         }
         else return false;
@@ -87,8 +88,7 @@ public class Residence {
         if(houses.containsKey(id))
         {
             ArrayList <SensorValue> values = houses.get(id).values;
-
-            return n < values.size() ? new ArrayList<SensorValue>(values.subList(values.size()-n, values.size())) : values;
+                return n < values.size() ? new ArrayList<SensorValue>(values.subList(values.size()-n, values.size())) : values;
 
             /*
             if(n<values.size())
@@ -96,7 +96,7 @@ public class Residence {
             else
                 return values; //dato che n è maggiore di size, restituisco quello che ho e basta.*/
         }
-        else return null;
+        return null;
     }
 
     //GET statistica condominiale

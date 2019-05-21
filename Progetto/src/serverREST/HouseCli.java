@@ -53,10 +53,15 @@ public class HouseCli extends Thread{
         this.port_server = port_s;
     }
 
-    public void run(){
+
+    public void run() {
         ClientConfig config = new ClientConfig();
         Client client = ClientBuilder.newClient(config);
-        WebTarget target = client.target(getBaseURI(ip_server, port_server));
+        WebTarget target;
+
+        //-------------- tentativo di collegarsi al server, 3 tentativi da 5000 millisec, alla peggio ci mette 15 secondi per connettersi, o non si connette proprio
+
+        target= client.target(getBaseURI(ip_server, port_server));
 
         //Aggiungo la casa al server
         //se non va, faccio riaprire il client per fargli cambiare id
@@ -122,5 +127,11 @@ public class HouseCli extends Thread{
         return uri;
     }
 
+    private static void waitSec()
+    {
+        try {
+            Thread.sleep(5000);
+        }catch (InterruptedException ie) {System.err.println("errore nella sleep di riconnessione");}
+    }
 
 }

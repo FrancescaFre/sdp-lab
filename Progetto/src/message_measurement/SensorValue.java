@@ -5,5 +5,5 @@ import java.sql.Timestamp;
 public class SensorValue
 {
        public double value;
-        public Timestamp time;
+        public int time;
 }
