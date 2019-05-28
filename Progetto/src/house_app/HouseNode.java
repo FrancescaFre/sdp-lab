@@ -14,6 +14,7 @@ import java.util.TimeZone;
 
 public class HouseNode {
 
+    House house;
     String id;
     int port;
 
@@ -28,21 +29,30 @@ public class HouseNode {
 
     HouseCli toRest;
 
-    public HouseNode(ArrayList<House>h, String id_h, int port_h, HouseCli rest_cli)
+    public HouseNode(ArrayList<House>h, HouseCli rest_cli, House hh)
     {
+        house = hh;
         house_list = h;
-        id = id_h;
-        port = port_h;
+        id = Integer.toString(hh.id);
+        port = hh.port;
         toRest = rest_cli;
     }
 
 
-    public void print_value(double val, HouseNode h, long time)
+    public void add_measurment(Measurement m){
+        res_values.add(m);
+        print_value(m.getValue(), m.getTimestamp());
+
+        //comunico i valori della casa comunicando l'ultimo valore prodotto.
+        toRest.send_values(house, coordinator, res_values.get(res_values.size()-1), house_values.get(house_values.size()-1));
+    }
+
+    public void print_value(double val, long time)
     {
         Date date = new Date(time);
         DateFormat formatter = new SimpleDateFormat("HH:mm:ss.SSS");
         formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-        System.out.println("<House-"+ h.id+" : "+formatter.format(date)+"> Valore consumo "+val);
+        System.out.println("<House-"+ id+" : "+formatter.format(date)+"> Valore consumo "+val);
     }
 }

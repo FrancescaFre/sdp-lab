@@ -67,7 +67,9 @@ public class HouseAPP {
         HouseCli toREST = new HouseCli(ip_server, port_server);
 
         ArrayList<House> house_list=new ArrayList<House>();
-        house_list = toREST.add_to_server(new House(Integer.parseInt(id), port));
+        House house = new House(Integer.parseInt(id), port);
+
+        house_list = toREST.add_to_server(house);
         if (house_list== null)  //se non ritorna la lista delle case significa che qualcosa è andato storto e chiudo la connessione
         {
             toREST.close();
@@ -81,7 +83,7 @@ public class HouseAPP {
         house_list.sort(House::compareTo);
 
         //creo il nodo della casa
-        HouseNode node = new HouseNode(house_list, id, port, toREST);
+        HouseNode node = new HouseNode(house_list, toREST, house);
 
         //creo il misuratore
         HouseMeasurement measurement = new HouseMeasurement(node);
@@ -108,6 +110,7 @@ public class HouseAPP {
                     //chiamata per il boost al nodo
         }while (!b);
 
+        toREST.rm_from_server(house);
         toREST.close();
         input.close();
         //fine main

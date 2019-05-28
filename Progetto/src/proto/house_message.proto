@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+option java_package = "House_Message";
+option java_outer_classname = "HM_outer";
+
+//-----------------------------------------------------------------------------------
+//                         PROTOBUF MESSAGE
+//-----------------------------------------------------------------------------------
+/*
+Invio delle statistiche alle altre case.
+type  = STAT
+value = valore da comunicare
+timestamp = timestamp della media
+id_measurment = id della media, per controllare che non sia doppio
+reply = lo mette a true solo il coordinatore quando risponde, risponde solo se va tutto bene
+*/
+message Statistic
+{
+    string type = 1;
+    double value = 2;
+    int64 timestamp = 3;
+    int32 id_measurement = 4;
+    int32 house_id = 5;
+    bool reply = 6;
+}
+//-----------------------------------------------------------------------------------
+/*
+type = ELECTION
+house_id = l'id della casa che comunica in bcast che è necessaria un'elezione,
+            quando è in reply questo campo contiene l'id del coordinatore
+reply = true solo in risposta modificato solo quando si trova un coordinatore
+*/
+message Election
+{
+    string type = 1;
+    int32 house_id = 2;
+    bool reply = 3;
+}
+//-----------------------------------------------------------------------------------
+/*
+type = JOIN
+id, port, ip sono le informazioni della casa che si presenta
+coordinator = -1 per il reply = false, per reply = true, cioè in risposta, contiene l'id del coordinatore
+reply
+*/
+message Join
+{
+    string type = 1;
+    int32 house_id = 2;
+    int32 port = 3;
+    string ip = 4;
+    int32 coordinator = 5;
+    bool reply = 6;
+}
+//-----------------------------------------------------------------------------------
+/*
+type = LEAVE
+id = id della casa che viene rimossa
+coordinator = è a true solo se chi sta venendo rimosso è un coordinatore
+*/
+message Leave
+{
+    string type = 1;
+    int32 id = 2;
+    bool coordinator = 3;
+}
+//-----------------------------------------------------------------------------------
+/*
+type = BOOST
+id = id della casa che richiede il boost
+timestamp = il momento della richiesta
+reply = i valori possono essere
+                OK: la risorsa è libera per il nodo che risponde
+                WAIT: la risorsa è occupata dal nodo che risponde
+//posso usare anche un true o false, ma metti che mi serve per altre info...
+*/
+message Boost
+{
+    string type = 1;
+    int32 house_id = 2;
+    int64 timestamp = 3;
+    string reply = 4;
+}
+
+//-----------------------------------------------------------------------------------
+//                         GRPC service
+//-----------------------------------------------------------------------------------
+
+service HouseService{
+    //sono tutte chiamate unarie
+    rpc presentation (Join) returns (Join){}
+    rpc coordinator_election (Election) returns (Election){}
+    rpc send_stat (Statistic) returns (Statistic){}
+    rpc leave_network (Leave) returns (Leave){}
+    rpc boost_request (Boost) returns (Boost){}
+}
