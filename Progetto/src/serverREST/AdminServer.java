@@ -1,6 +1,7 @@
 package serverREST;
 
-import message_measurement.SensorValue;
+import message_measurement.House;
+import simulation_src_2019.Measurement;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -64,7 +65,7 @@ public class AdminServer {
     @Path("house/values") //per la residenza
     @POST
     @Consumes({"application/json"})
-    public Response add_values(SensorValue sn) {
+    public Response add_values(Measurement sn) {
         if (Residence.getInstance().updateStatistics(sn))
             return Response.ok().build();
         else return Response.status(Response.Status.NOT_FOUND).entity("valori non validi").build();
@@ -73,7 +74,7 @@ public class AdminServer {
     @Path("house/values/{id: [0-9]*}") //per la casa
     @POST
     @Consumes({"application/json"})
-    public Response add_values(SensorValue sn, @PathParam("id") int id) {
+    public Response add_values(Measurement sn, @PathParam("id") int id) {
         if (Residence.getInstance().updateStatistics(id, sn))
             return Response.ok().build();
         else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato nella residenza, impossibile aggiornare i valori").build();

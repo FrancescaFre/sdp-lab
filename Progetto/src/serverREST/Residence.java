@@ -1,7 +1,7 @@
 package serverREST;
 
-
-import message_measurement.SensorValue;
+import message_measurement.House;
+import simulation_src_2019.Measurement;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -18,14 +18,14 @@ public class Residence {
     //variabili
     @XmlElement(name="house_list")
     public Hashtable<Integer, House> houses;
-    public ArrayList<SensorValue> residence_values;
+    public ArrayList<Measurement> residence_values;
 
     private static Residence instance;
 
     private Residence()
     {
         houses = new Hashtable<Integer, House>();
-        residence_values = new ArrayList<SensorValue>();
+        residence_values = new ArrayList<Measurement>();
     }
 
     //singleton
@@ -83,16 +83,16 @@ public class Residence {
 
     //-------------statistiche case
     //GET statistica di una casa singola
-    public synchronized ArrayList<SensorValue> statistics (int id, int n)
+    public synchronized ArrayList<Measurement> statistics (int id, int n)
     {
         if(houses.containsKey(id))
         {
-            ArrayList <SensorValue> values = houses.get(id).values;
-                return n < values.size() ? new ArrayList<SensorValue>(values.subList(values.size()-n, values.size())) : values;
+            ArrayList <Measurement> values = houses.get(id).values;
+                return n < values.size() ? new ArrayList<Measurement>(values.subList(values.size()-n, values.size())) : values;
 
             /*
             if(n<values.size())
-                return new ArrayList<SensorValue>(values.subList(values.size()-n, values.size()));
+                return new ArrayList<Measuremente>(values.subList(values.size()-n, values.size()));
             else
                 return values; //dato che n è maggiore di size, restituisco quello che ho e basta.*/
         }
@@ -100,13 +100,13 @@ public class Residence {
     }
 
     //GET statistica condominiale
-    public synchronized ArrayList<SensorValue> statistics (int n)
+    public synchronized ArrayList<Measurement> statistics (int n)
     {
-        return n < residence_values.size() ? new ArrayList<SensorValue>(residence_values.subList(residence_values.size()-n, residence_values.size())) : residence_values;
+        return n < residence_values.size() ? new ArrayList<Measurement>(residence_values.subList(residence_values.size()-n, residence_values.size())) : residence_values;
     }
 
     //PUT statistica di una casa
-    public synchronized boolean updateStatistics(int id, SensorValue value)
+    public synchronized boolean updateStatistics(int id, Measurement value)
     {
         if(houses.containsKey(id))
         {
@@ -117,14 +117,14 @@ public class Residence {
     }
 
     //PUT statistica globale del condomionio
-    public synchronized boolean updateStatistics(SensorValue value)
+    public synchronized boolean updateStatistics(Measurement value)
     {
         residence_values.add(value);
         return true;
     }
 
     public double [] get_mean_stdDeviation(int id, int n){
-        ArrayList<SensorValue> stat = statistics(id, n);
+        ArrayList<Measurement> stat = statistics(id, n);
         if (stat != null)
         {
             return mean_stdDeviation(stat);
@@ -138,20 +138,20 @@ public class Residence {
     }
 
 
-    private double[] mean_stdDeviation (ArrayList<SensorValue> stat)
+    private double[] mean_stdDeviation (ArrayList<Measurement> stat)
     {
         if (stat.size() == 0)
             return new double[] {0,0};
 
         double[] res = new double[2];
         //Calcolo media
-        for (SensorValue s : stat)
-            res[0] += s.value;
+        for (Measurement s : stat)
+            res[0] += s.getValue();
         res[0] = res[0]/stat.size();
 
         //Calcolo deviazione standard
-        for (SensorValue s : stat)
-            res[1] += (s.value-res[0])*(s.value-res[0]);
+        for (Measurement s : stat)
+            res[1] += (s.getValue()-res[0])*(s.getValue()-res[0]);
         res[1] = res[1] /(stat.size());
         res[1] = Math.sqrt(res[1]);
 

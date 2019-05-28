@@ -1,12 +1,12 @@
 package serverREST;
 
+import message_measurement.House;
 import message_measurement.SensorValue;
 import org.glassfish.jersey.client.ClientConfig;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import java.util.Hashtable;
 import java.util.Scanner;
 
 import javax.ws.rs.client.Client;
