@@ -23,7 +23,12 @@
             <scope>compile</scope>
         </dependency>
 
-
+        <!-- CHART -->
+        <dependency>
+            <groupId>org.knowm.xchart</groupId>
+            <artifactId>xchart</artifactId>
+            <version>3.5.4</version>
+        </dependency>
 
         <!-- GRPC -->
         <dependency>

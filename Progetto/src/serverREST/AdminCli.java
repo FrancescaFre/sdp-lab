@@ -1,17 +1,17 @@
 package serverREST;
 
+import house_app.AdminChart;
 import message_measurement.House;
 import org.glassfish.jersey.client.ClientConfig;
 import simulation_src_2019.Measurement;
 
+import java.lang.reflect.Array;
 import java.net.URI;
 import java.net.URISyntaxException;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Scanner;
-import java.util.TimeZone;
+import java.util.*;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -154,6 +154,8 @@ public class AdminCli {
         for (Measurement sv : values){
             System.out.println("<"+qtPrint(sv.getTimestamp())+">: "+sv.getValue());
         }
+
+        AdminChart.plot(new ArrayList<Measurement>(Arrays.asList(values)));
     }
 
     //-------------------------------- Statistica residenza
@@ -178,6 +180,7 @@ public class AdminCli {
         for (Measurement sv : values){
             System.out.println("<"+qtPrint(sv.getTimestamp())+">: "+sv.getValue());
         }
+        AdminChart.plot(new ArrayList<Measurement>(Arrays.asList(values)));
     }
 
     //-------------------------------- Media e DevStandard di una casa
