@@ -1,4 +1,4 @@
 public class Lobby_Chat extends Thread{
-    public Lobby_Chat ()
+    public Lobby_Chat (){}
 
 }

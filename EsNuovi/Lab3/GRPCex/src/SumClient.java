@@ -14,16 +14,16 @@ import java.util.concurrent.TimeUnit;
 public class SumClient {
     public static void main(String[] argv) {
         System.out.println("----------------Simple Sum Sync");
-        SimpleSumSynch ();
+        //SimpleSumSynch ();
 
         System.out.println("----------------Simple Sum ASynch");
         SimpleSumAsynch();
 
         System.out.println("----------------Repeated Sum Sync");
-        RepeatedSumSync();
+       // RepeatedSumSync();
 
         System.out.println("----------------Repeated Sum ASync");
-        RepeatedSumAsynch();
+        //RepeatedSumAsynch();
 
         System.out.println("----------------Stream Sum");
         StreamSum();
@@ -62,7 +62,8 @@ public class SumClient {
 
             @Override
             public void onError(Throwable throwable) {
-                System.err.println("SimpleSum Asincrono Error " +throwable.getMessage() );
+                System.err.println("SimpleSum Asincrono Error " +throwable.getMessage());
+                throwable.printStackTrace();
             }
 
             @Override
@@ -79,7 +80,7 @@ public class SumClient {
     public static void RepeatedSumSync(){
         String host = "localhost";
         int port = 6060;
-        final ManagedChannel channel = ManagedChannelBuilder.forAddress(host, port).usePlaintext(false).build();
+        final ManagedChannel channel = ManagedChannelBuilder.forAddress(host, port).usePlaintext(true).build();
 
         //Sincrono
         SumGrpc.SumBlockingStub stub = SumGrpc.newBlockingStub(channel);

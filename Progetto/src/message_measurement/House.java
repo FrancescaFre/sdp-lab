@@ -1,6 +1,5 @@
 package message_measurement;
 
-import message_measurement.SensorValue;
 import org.jetbrains.annotations.NotNull;
 import simulation_src_2019.Measurement;
 
@@ -14,6 +13,7 @@ public class House implements Comparable<House> {
     public String ip;
     public int port;
     public ArrayList<Measurement> values;
+    public int last_measurement_mean_id;
 
     public House(){};
 

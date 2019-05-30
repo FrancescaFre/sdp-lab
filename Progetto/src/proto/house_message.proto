@@ -63,6 +63,7 @@ message Leave
     string type = 1;
     int32 id = 2;
     bool coordinator = 3;
+    bool reply = 4;
 }
 //-----------------------------------------------------------------------------------
 /*
@@ -89,8 +90,8 @@ message Boost
 service HouseService{
     //sono tutte chiamate unarie
     rpc presentation (Join) returns (Join){}
-    rpc coordinator_election (Election) returns (Election){}
-    rpc send_stat (Statistic) returns (Statistic){}
-    rpc leave_network (Leave) returns (Leave){}
-    rpc boost_request (Boost) returns (Boost){}
+    rpc coordinatorElection (Election) returns (Election){}
+    rpc sendStat (Statistic) returns (Statistic){}
+    rpc leaveNetwork (Leave) returns (Leave){}
+    rpc boostRequest (Boost) returns (Boost){}
 }

@@ -4,6 +4,8 @@ import SumEx.SumEx_outer.Output;
 import io.grpc.stub.StreamObserver;
 
 public class SumService extends SumImplBase {
+
+
     @Override
     public void simpleSum(Input request, StreamObserver<Output> response){
         Output resp = Output.newBuilder().setRes(request.getN1()+request.getN2()).build();

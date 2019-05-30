@@ -1,13 +1,17 @@
 package serverREST;
 
 import message_measurement.House;
-import message_measurement.SensorValue;
 import org.glassfish.jersey.client.ClientConfig;
+import simulation_src_2019.Measurement;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Scanner;
+import java.util.TimeZone;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -140,15 +144,15 @@ public class AdminCli {
             return;
         }
 
-        SensorValue[] values = response.readEntity(SensorValue[].class);
+        Measurement[] values = response.readEntity(Measurement[].class);
         if (values.length == 0){
             System.err.println("Non ci sono valori raccolti sulla casa");
             return;
         }
 
         System.out.println("Raccolta di "+ values.length+" valori della casa con identificativo "+input[0]);
-        for (SensorValue sv : values){
-            System.out.println("<"+sv.time+">: "+sv.value);
+        for (Measurement sv : values){
+            System.out.println("<"+qtPrint(sv.getTimestamp())+">: "+sv.getValue());
         }
     }
 
@@ -157,7 +161,7 @@ public class AdminCli {
     {
         String n = getInputResidence();
         Response response = target.path("server").path("admin/stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
-        SensorValue[] values = response.readEntity(SensorValue[].class);
+        Measurement[] values = response.readEntity(Measurement[].class);
 
         if (response.getStatus() != 200)
         {
@@ -171,8 +175,8 @@ public class AdminCli {
         }
 
         System.out.println("Raccolta di "+values.length+" valori della residenza");
-        for (SensorValue sv : values){
-            System.out.println("<"+sv.time+">: "+sv.value);
+        for (Measurement sv : values){
+            System.out.println("<"+qtPrint(sv.getTimestamp())+">: "+sv.getValue());
         }
     }
 
@@ -286,4 +290,10 @@ public class AdminCli {
         input.close();
     }
 
+    private static String qtPrint(long time){
+        Date date = new Date(time);
+        DateFormat formatter = new SimpleDateFormat("HH:mm:ss.SSS");
+        formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return formatter.format(time);
+    }
 }

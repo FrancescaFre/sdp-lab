@@ -89,8 +89,8 @@ public class HouseAPP {
         HouseMeasurement measurement = new HouseMeasurement(node);
 
         //avvio il simulatore
-        Thread thread = new Thread(new SmartMeterSimulator(id, measurement));
-        thread.start();
+        SmartMeterSimulator sm = new SmartMeterSimulator(measurement);
+        sm.start();
 
         //-------------------------------------------------Inizio dell'interfaccia utente
         b=false;
@@ -113,6 +113,7 @@ public class HouseAPP {
         toREST.rm_from_server(house);
         toREST.close();
         input.close();
+        sm.stopMeGently();
         //fine main
     }
 

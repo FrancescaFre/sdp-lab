@@ -13,8 +13,8 @@ public class SumServer {
             System.out.println("Server started");
 
             server.awaitTermination();
-
         }
+
         catch (IOException e){
             System.err.print("Errore nello start server ----------");
             e.printStackTrace();
