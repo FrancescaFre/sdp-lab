@@ -1,5 +1,6 @@
 package house_app;
 
+import message_measurement.SensorMeasurement;
 import org.glassfish.jersey.client.ClientConfig;
 import message_measurement.House;
 import simulation_src_2019.Measurement;
@@ -56,7 +57,10 @@ public class HouseCli{
 
             return null;
         }
-        return new ArrayList<House>(Arrays.asList(response.readEntity(House[].class)));
+        System.out.println("-------------------------");
+
+        House[] list = response.readEntity(House[].class);
+        return new ArrayList<House>(Arrays.asList(list));
     }
 
     //RIMOZIONE DAL SERVER
@@ -73,7 +77,7 @@ public class HouseCli{
 
     //INVIO VALORI al server
     /**send_values vuole la casa che invia i valori, se è coordinatore o meno, i suoi valori della residenza e i propri**/
-    public void send_values(House house, boolean coordinator, Measurement sv_r, Measurement sv_h){
+    public void send_values(House house, boolean coordinator, SensorMeasurement sv_r, SensorMeasurement sv_h){
         Response response_residence;
         if (coordinator && sv_r!=null) {
             response_residence = target.path("server").path("/house/values").request().post(Entity.entity(sv_r, MediaType.APPLICATION_JSON));

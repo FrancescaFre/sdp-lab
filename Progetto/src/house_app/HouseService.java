@@ -9,10 +9,13 @@ import House_Message.HM_outer.Election;
 import House_Message.HM_outer.Leave;
 import House_Message.HM_outer.Boost;
 import House_Message.HM_outer.Statistic;
+import House_Message.HM_outer.President;
 
 import io.grpc.stub.StreamObserver;
 import message_measurement.House;
 import simulation_src_2019.Measurement;
+
+import javax.ws.rs.core.Response;
 
 
 public class HouseService extends HouseServiceImplBase{
@@ -27,7 +30,9 @@ public class HouseService extends HouseServiceImplBase{
     @Override
     public void sendStat(Statistic request, StreamObserver<Statistic> response){
 
-        if(request.getReply() || !request.getType().equals("STAT")) //se è un reply, return
+        if (request.getReply()) //se è un reply vuol dire che devo diffondere il messaggio del coordinatore
+
+        if(!request.getType().equals("STAT")) //se è un reply, return
             response.onCompleted();
 
         Integer progressive_residence_mean_id = node.MeanStat_SendStat(request.getHouseId(), request.getIdMeasurement(), request.getValue());
@@ -76,6 +81,7 @@ public class HouseService extends HouseServiceImplBase{
     }
 
     //---------------------------------------------------RIMOZIONE
+    @Override
     public void leaveNetwork (Leave request, StreamObserver<Leave> response){
         if (!request.getType().equals("LEAVE"))
             response.onCompleted();
@@ -94,6 +100,7 @@ public class HouseService extends HouseServiceImplBase{
 
 
     //---------------------------------------------------ELEZIONE
+    @Override
     public void coordinatorElection(Election request, StreamObserver<Election> response){
         if(request.getReply() || !request.getType().equals("ELECTION"))
             response.onCompleted();
@@ -105,10 +112,21 @@ public class HouseService extends HouseServiceImplBase{
         electionReply.setType("ELECTION");
         electionReply.setHouseId(id_coordinator);
         electionReply.setReply(true);
+
+        response.onNext(electionReply.build());
+        response.onCompleted();
     }
 
     //---------------------------------------------------BOOST
+    @Override
     public void boostRequest (Boost request, StreamObserver<Boost> response){
         //se non sto usando la risorsa rispondo con ok, altrimenti con wait e lo faccio mettere in coda
+    }
+
+    //---------------------------------------------------President
+    @Override
+    public void imThePresident(President request, StreamObserver<President> responseObserver) {
+        node.coordinator_id = request.getHouseId();
+        responseObserver.onCompleted();
     }
 }

@@ -1,11 +1,11 @@
 package serverREST;
 
-import house_app.AdminChart;
+import message_measurement.AdminChart;
 import message_measurement.House;
+import message_measurement.SensorMeasurement;
 import org.glassfish.jersey.client.ClientConfig;
 import simulation_src_2019.Measurement;
 
-import java.lang.reflect.Array;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -144,18 +144,18 @@ public class AdminCli {
             return;
         }
 
-        Measurement[] values = response.readEntity(Measurement[].class);
+        SensorMeasurement[] values = response.readEntity(SensorMeasurement[].class);
         if (values.length == 0){
             System.err.println("Non ci sono valori raccolti sulla casa");
             return;
         }
 
         System.out.println("Raccolta di "+ values.length+" valori della casa con identificativo "+input[0]);
-        for (Measurement sv : values){
-            System.out.println("<"+qtPrint(sv.getTimestamp())+">: "+sv.getValue());
+        for (SensorMeasurement sv : values){
+            System.out.println("<"+qtPrint(sv.timestamp)+">: "+sv.value);
         }
 
-        AdminChart.plot(new ArrayList<Measurement>(Arrays.asList(values)));
+        AdminChart.plot(new ArrayList<SensorMeasurement>(Arrays.asList(values)), Integer.parseInt(input[0]));
     }
 
     //-------------------------------- Statistica residenza
@@ -163,7 +163,7 @@ public class AdminCli {
     {
         String n = getInputResidence();
         Response response = target.path("server").path("admin/stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
-        Measurement[] values = response.readEntity(Measurement[].class);
+        SensorMeasurement[] values = response.readEntity(SensorMeasurement[].class);
 
         if (response.getStatus() != 200)
         {
@@ -177,10 +177,10 @@ public class AdminCli {
         }
 
         System.out.println("Raccolta di "+values.length+" valori della residenza");
-        for (Measurement sv : values){
-            System.out.println("<"+qtPrint(sv.getTimestamp())+">: "+sv.getValue());
+        for (SensorMeasurement sv : values){
+            System.out.println("<"+qtPrint(sv.timestamp)+">: "+sv.value);
         }
-        AdminChart.plot(new ArrayList<Measurement>(Arrays.asList(values)));
+        AdminChart.plot(new ArrayList<SensorMeasurement>(Arrays.asList(values)), -1);
     }
 
     //-------------------------------- Media e DevStandard di una casa

@@ -73,7 +73,7 @@ timestamp = il momento della richiesta
 reply = i valori possono essere
                 OK: la risorsa è libera per il nodo che risponde
                 WAIT: la risorsa è occupata dal nodo che risponde
-//posso usare anche un true o false, ma metti che mi serve per altre info...
+                FREE: messaggio a tutti quanti
 */
 message Boost
 {
@@ -82,6 +82,17 @@ message Boost
     int64 timestamp = 3;
     string reply = 4;
 }
+//-----------------------------------------------------------------------------------
+/*
+type = PRESIDENT
+//posso usare anche un true o false, ma metti che mi serve per altre info...
+id = id di chi si è proclamato coordinatore*/
+message President
+{
+    string type = 1;
+    int32 house_id = 2;
+}
+
 
 //-----------------------------------------------------------------------------------
 //                         GRPC service
@@ -94,4 +105,5 @@ service HouseService{
     rpc sendStat (Statistic) returns (Statistic){}
     rpc leaveNetwork (Leave) returns (Leave){}
     rpc boostRequest (Boost) returns (Boost){}
+    rpc imThePresident (President) returns (President){}
 }

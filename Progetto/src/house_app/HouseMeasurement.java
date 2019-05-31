@@ -5,6 +5,7 @@ import simulation_src_2019.Measurement;
 
 import java.util.ArrayList;
 
+
 public class HouseMeasurement implements Buffer {
 
     double mean;
@@ -24,7 +25,7 @@ public class HouseMeasurement implements Buffer {
     @Override
     public void addMeasurement(Measurement m) {
         recorded_values.add(m);
-        house.print_value(m.getValue(), m.getTimestamp());
+       // house.print_value(m.getValue(), m.getTimestamp());
 
         /*
         //se ho raccolto le prime 24 misurazioni E ho raggiunto una dimensione di modulo 12, cioè ho raggiunto il numero giusto per le misurazioni
@@ -55,6 +56,8 @@ public class HouseMeasurement implements Buffer {
 
         //creo una nuova misura composta dall'indice delle medie di questo sensore, il valore calcolato, e per timestamp, l'ultimo timestamp rilevato
         house.add_measurment(new Measurement((mean_index+""), null, mean, System.currentTimeMillis()));
+
         mean_index++;
     }
+
 }

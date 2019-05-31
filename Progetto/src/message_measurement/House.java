@@ -12,7 +12,7 @@ public class House implements Comparable<House> {
     public int id;
     public String ip;
     public int port;
-    public ArrayList<Measurement> values;
+    public ArrayList<SensorMeasurement> values;
     public int last_measurement_mean_id;
 
     public House(){};
@@ -21,13 +21,13 @@ public class House implements Comparable<House> {
         this.id = id;
         this.port = port;
         this.ip = ip;
-        values=new ArrayList<Measurement>();
+        values=new ArrayList<SensorMeasurement>();
     }
     public House (int id, int port) {
         this.id = id;
         this.port = port;
         this.ip = new String("localhost");
-        values=new ArrayList<Measurement>();
+        values=new ArrayList<SensorMeasurement>();
     }
 
 
