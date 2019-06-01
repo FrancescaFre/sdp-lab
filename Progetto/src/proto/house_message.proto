@@ -19,7 +19,7 @@ message Statistic
     string type = 1;
     double value = 2;
     int64 timestamp = 3;
-    int32 id_measurement = 4;
+    int32 measurement_id= 4;
     int32 house_id = 5;
     bool reply = 6;
 }
@@ -82,16 +82,6 @@ message Boost
     int64 timestamp = 3;
     string reply = 4;
 }
-//-----------------------------------------------------------------------------------
-/*
-type = PRESIDENT
-//posso usare anche un true o false, ma metti che mi serve per altre info...
-id = id di chi si è proclamato coordinatore*/
-message President
-{
-    string type = 1;
-    int32 house_id = 2;
-}
 
 
 //-----------------------------------------------------------------------------------
@@ -105,5 +95,6 @@ service HouseService{
     rpc sendStat (Statistic) returns (Statistic){}
     rpc leaveNetwork (Leave) returns (Leave){}
     rpc boostRequest (Boost) returns (Boost){}
-    rpc imThePresident (President) returns (President){}
+    rpc imThePresident (Election) returns (Election){}
+    rpc checkConnection (Join) returns (Join){}
 }

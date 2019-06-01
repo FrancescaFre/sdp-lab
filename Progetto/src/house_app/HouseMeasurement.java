@@ -56,7 +56,7 @@ public class HouseMeasurement implements Buffer {
 
         //creo una nuova misura composta dall'indice delle medie di questo sensore, il valore calcolato, e per timestamp, l'ultimo timestamp rilevato
         house.add_measurment(new Measurement((mean_index+""), null, mean, System.currentTimeMillis()));
-
+        //System.out.println("MEAN INDEX "+mean_index);
         mean_index++;
     }
 

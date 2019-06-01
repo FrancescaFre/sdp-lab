@@ -9,7 +9,7 @@ import House_Message.HM_outer.Election;
 import House_Message.HM_outer.Leave;
 import House_Message.HM_outer.Boost;
 import House_Message.HM_outer.Statistic;
-import House_Message.HM_outer.President;
+//import House_Message.HM_outer.President;
 
 import io.grpc.stub.StreamObserver;
 import message_measurement.House;
@@ -31,39 +31,33 @@ public class HouseService extends HouseServiceImplBase{
     public void sendStat(Statistic request, StreamObserver<Statistic> response){
 
         if (request.getReply()) //se è un reply vuol dire che devo diffondere il messaggio del coordinatore
+            node.print_value(request.getValue(), request.getTimestamp(), true); //quindi appena arriva una misurazione, questa viene stampata - MEDIA DEL CONDOMINIO
 
-        if(!request.getType().equals("STAT")) //se è un reply, return
-            response.onCompleted();
+        Integer progressive_residence_mean_id = node.MeanStat_SendStat(request.getHouseId(), request.getMeasurementId(), request.getValue());
+            System.out.println("---------------------"+progressive_residence_mean_id);
 
-        Integer progressive_residence_mean_id = node.MeanStat_SendStat(request.getHouseId(), request.getIdMeasurement(), request.getValue());
+    if (progressive_residence_mean_id != null) {
+          Statistic.Builder statisticReply = Statistic.newBuilder();
 
-        Statistic.Builder statisticReply = Statistic.newBuilder();
+          statisticReply.setType("STAT");
+          statisticReply.setValue(node.res_values.get(node.res_values.size() - 1).getValue());
+          statisticReply.setTimestamp(System.currentTimeMillis());
+          statisticReply.setMeasurementId(progressive_residence_mean_id);
+          statisticReply.setHouseId(Integer.parseInt(node.id));
 
-        statisticReply.setType("STAT");
-        synchronized (node.res_values){ statisticReply.setValue(node.res_values.get(node.res_values.size()-1).getValue()); }
-        statisticReply.setTimestamp(System.currentTimeMillis());
-        statisticReply.setIdMeasurement(progressive_residence_mean_id);
-        synchronized (node.coordinator) {
-            if (node.coordinator) {
-                statisticReply.setHouseId(Integer.parseInt(node.id));
-            }
-            else {
-                statisticReply.setHouseId(Integer.parseInt(node.id));
-            }
+          statisticReply.setReply(true);
+
+          statisticReply.build();
+
+          response.onNext(statisticReply.build());
         }
-        statisticReply.setReply(true);
 
-        statisticReply.build();
-
-        response.onNext(statisticReply.build());
         response.onCompleted();
     }
 
     //---------------------------------------------------JOIN
     @Override
     public void presentation (Join request, StreamObserver<Join> response){
-        if(request.getReply() || !request.getType().equals("JOIN"))
-            response.onCompleted();
 
         int coordinator = node.Welcome(request.getHouseId(), request.getPort());
 
@@ -102,15 +96,12 @@ public class HouseService extends HouseServiceImplBase{
     //---------------------------------------------------ELEZIONE
     @Override
     public void coordinatorElection(Election request, StreamObserver<Election> response){
-        if(request.getReply() || !request.getType().equals("ELECTION"))
-            response.onCompleted();
 
-        int id_coordinator = node.Election(request.getHouseId());
+       node.Election(request.getHouseId());
 
         Election.Builder electionReply = Election.newBuilder();
 
         electionReply.setType("ELECTION");
-        electionReply.setHouseId(id_coordinator);
         electionReply.setReply(true);
 
         response.onNext(electionReply.build());
@@ -125,8 +116,15 @@ public class HouseService extends HouseServiceImplBase{
 
     //---------------------------------------------------President
     @Override
-    public void imThePresident(President request, StreamObserver<President> responseObserver) {
-        node.coordinator_id = request.getHouseId();
+    public void imThePresident(Election request, StreamObserver<Election> responseObserver) {
+        node.coordinator_id = request.getHouseId(); //memorizzo il nuovo coordinatore
         responseObserver.onCompleted();
+    }
+
+
+    //---------------------------------------------------President
+    @Override
+public void checkConnection (Join request, StreamObserver<Join> response){
+        response.onCompleted();
     }
 }

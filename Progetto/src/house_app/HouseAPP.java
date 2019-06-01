@@ -1,5 +1,6 @@
 package house_app;
 
+import com.sun.xml.bind.v2.runtime.Coordinator;
 import message_measurement.House;
 import simulation_src_2019.SmartMeterSimulator;
 
@@ -51,16 +52,18 @@ public class HouseAPP {
         boolean b = false;
         Random random = new Random();
         do {
-            System.out.println("Inserisci un numero identificativo per la casa ");
+      System.out.println(
+          "Inserisci un numero identificativo per la casa inferiore a 16.383 ");
             id = input.nextLine();
-            if (id.matches("^\\d+$"))
+            if (id.matches("^\\d+$") && Integer.parseInt(id) < 16383)
                 b = true;
             else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero valido");
 
         }while(!b);
 
+        port = Integer.parseInt(id)+49152;
         //numero di porta invece è randomico
-        port = random.nextInt(65535-49152 +1)+49152 ;
+        // port = random.nextInt(65535-49152 +1)+49152 ;
         System.out.println("Casa creata\nID: "+id+"\nAddr: localhost:"+port);
 
         //------------------------------------------------Creazione del client e richiesta di aggiunta al server
@@ -92,6 +95,8 @@ public class HouseAPP {
         SmartMeterSimulator sm = new SmartMeterSimulator(measurement);
         sm.start();
 
+        //start lato server gprc del nodo
+        new Thread(new HouseServer(node, port)).start();
         //-------------------------------------------------Inizio dell'interfaccia utente
         b=false;
         String ris;
@@ -100,10 +105,30 @@ public class HouseAPP {
             System.out.println(
                     "1 - Rimuoviti dalla lista delle case dal server e chiudi l'applicazione\n"+
                     "2 - Richiesta BOOST"
+
+                    +"\n TESTING"
+                    +"\n 3- leggi il coordinatore e vedi se sei coordinatore"
+                    +"\n 4 - fai partire l'elezione"
+                    +"\n "
+
             );
 
             ris = input.nextLine();
             if(ris.matches("^\\d+$"))
+                switch (Integer.parseInt(ris))
+                {
+                    case 1://chiudi la sessione - Leave
+                            b = true;
+                            break;
+                    case 2: //boost
+                            break;
+                    case 3://leggi il coordinatore
+                            System.out.println("Questa casa con id " +node.id+ "\nha come coordinatore: "+node.coordinator_id+" ed è coordinatore? "+ node.coordinator);
+                            break;
+                    case 4: //partire un'elezione
+                            node.startElection(Integer.parseInt(node.id));
+                            break;
+                }
                 if(ris=="1")
                     b=true;
                 //if(ris=="2")

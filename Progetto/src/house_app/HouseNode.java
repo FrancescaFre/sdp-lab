@@ -4,9 +4,8 @@ import House_Message.HM_outer.*;
 import House_Message.HouseServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
-import io.netty.handler.codec.http.cookie.CookieDecoder;
-import jdk.javadoc.internal.tool.Start;
 import message_measurement.House;
 import message_measurement.SensorMeasurement;
 import simulation_src_2019.Measurement;
@@ -28,7 +27,6 @@ public class HouseNode {
     ArrayList<Measurement> house_values = new ArrayList<Measurement>();
     ArrayList<Measurement> res_values = new ArrayList<Measurement>();
     final Hashtable<Integer, House> house_list = new Hashtable<Integer, House>();
-    //final Hashtable<Integer, ManagedChannel> channel_list = new Hashtable<Integer, ManagedChannel>();
 
     int coordinator_id;
 
@@ -40,6 +38,7 @@ public class HouseNode {
 
     HouseCli toRest;
 
+    //Costruttore
     public HouseNode(ArrayList<House> h, HouseCli rest_cli, House hh) {
         house = hh;
 
@@ -52,105 +51,81 @@ public class HouseNode {
         for (int i = 0; i < h.size(); i++) {
             house_list.put(h.get(i).id, h.get(i));
         }
-        //this startjoin
+
+        Join(); //grpc di presentazione
     }
 
-    public void add_house_to_list(House h) {
-        if (house_list.containsKey(h.id))
-            return;
-        house_list.put(h.id, h);
-    }
-
-    public void rm_house_from_list(House h) {
-        if (!house_list.containsKey(h.id))
-            return;
-        house_list.remove(h.id);
-    }
-
+    //Add Measurement
     public void add_measurment(Measurement m) {
         house_values.add(m);
-        print_value(m.getValue(), m.getTimestamp());
-
-        SendStat();
+      //  print_value(m.getValue(), m.getTimestamp());
         send_values();
     }
 
-//-------------------- INVIO DEI VALORI
+    // Stampa dei valori
+    public void print_value(double val, long time, boolean residence_val) {
+        Timestamp ts = new Timestamp(time);
+        DateFormat formatter = new SimpleDateFormat("dd/mm/yy HH:mm:ss");
+        if(residence_val)
+            System.out.println("<Residence : " + formatter.format(ts) + " : "+(last_measurement_resident_to_rest) +"> Valore consumo " + val +" Watt");
+        else
+            System.out.println("<House-" + id + " : " + formatter.format(ts) + " : "+(last_measurement_house_to_rest) +"> Valore consumo " + val +" Watt");
+    }
+
+    //-------------------- INVIO DEI VALORI
     public void send_values() {
         //comunico i valori della casa al server
+       int lastMeanRes = last_measurement_resident_to_rest;
+        int lastMeanHouse = 0;
+        if (res_values.size() != 0)
+                lastMeanRes = Integer.parseInt(res_values.get(res_values.size()-1).getId());
 
-        int lastMeanRes = last_measurement_resident_to_rest;
-        if (res_values.size() >= 1)
-                lastMeanRes = Integer.parseInt(res_values.get(res_values.size() - 1).getId());
-
-        int lastMeanHouse = Integer.parseInt(house_values.get(house_values.size()-1).getId());
+        if (house_values.size() != 0)
+            lastMeanHouse = Integer.parseInt(house_values.get(house_values.size()-1).getId());
 
         Measurement m_to_send;
 
         // invio i valori della residenza se sono aggiornati
-        if (last_measurement_house_to_rest < lastMeanRes) {
+        if (last_measurement_resident_to_rest < lastMeanRes) {
             m_to_send = res_values.get(res_values.size()-1);
             toRest.send_values(house,coordinator, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()), null);
             last_measurement_resident_to_rest = lastMeanRes;
         }
 
         //invio i valori della casa se sono aggiornati
-        if (last_measurement_resident_to_rest < lastMeanHouse){
+        if (last_measurement_house_to_rest < lastMeanHouse){
             m_to_send = house_values.get(house_values.size()-1);
             toRest.send_values(house,coordinator,null, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()));
             last_measurement_house_to_rest = lastMeanHouse;
+
+            print_value(m_to_send.getValue(), m_to_send.getTimestamp(), false);
         }
-    }
 
-    public void print_value(double val, long time) {
-        Timestamp ts = new Timestamp(time);
-        DateFormat formatter = new SimpleDateFormat("dd/mm/yy HH:mm:ss");
-
-        System.out.println("<House-" + id + " : " + formatter.format(ts) + " : "+last_measurement_house_to_rest+1 +"> Valore consumo " + val +" Watt");
+    // se non c'è il coordinatore, fermo il sendStat
+    if (coordinator) // se esiste il coordinatore
+    {
+          SendStat();
+        }else {
+            startElection(Integer.parseInt(id));
+            SendStat();
+        }
     }
 
 //-----------------------------------------------------------------------------------
 //                        ROBA per GRPC
 //-----------------------------------------------------------------------------------
 
-    //---------------------------------------------------Quando invio una misurazione (CLIENT)
-    public synchronized void SendStat(){
-
-    }
-
-    //---------------------------------------------------Quando si riceve una misurazione dagli altri (SERVER)
-    public synchronized Integer MeanStat_SendStat(int house_id, int measure_id, Double measure) {
-
-        int house_list_size;
-
-        //se l'ultima misurazione mandata al serverRest è < dell'attuale, significa che quella attuale è aggiornata
-        if (house_list.containsKey(house_id)) { //se sto valutando la misurazione di una casa che non è più connessa alla rete, ignoro la misurazione
-
-            if (house_list.get(house_id).last_measurement_mean_id < measure_id) {
-                house_list.get(house_id).last_measurement_mean_id = measure_id; //aggiorno l'id
-                buffer.put(house_id, measure);
-            }
-        } else buffer.remove(house_id); //se sto considerando il valore di una casa non più connessa, la rimuovo
-
-
-        if (buffer.size() >= house_list.size()) { //ho le misurazioni di tutte le case, media e inivio.
-            Double mean = 0d;
-            for (Double d : buffer.values())
-                mean += d;
-            mean /= buffer.size();
-            buffer.clear();
-            last_measurement_resident_to_rest++;
-            res_values.add(new Measurement((last_measurement_resident_to_rest + ""), null, mean, System.currentTimeMillis()));
-
-            //infine rispondo al nodo
-            send_values();
-            return last_measurement_resident_to_rest;
-        }
-        return null;
-    }
-
     //---------------------------------------------------Quando ci si presenta (CLIENT)
     public synchronized void Join(){
+
+        if (house_list.size() == 1)
+        {
+            //se la lista di case è composto solo da un nodo (cioè me stesso) si autoelegge come coordinatore
+            imThePresident();
+
+            return;
+        }
+
         Join.Builder join = Join.newBuilder();
         join.setType("JOIN");
         join.setHouseId(Integer.parseInt(this.id));
@@ -161,7 +136,10 @@ public class HouseNode {
 
         Join join_message = join.build();
 
+
         ArrayList<Integer> maybe_coordinator = new ArrayList<Integer>();
+        //struttura dati che uso per salvare i coordinatori che ricevo dalle altre case
+        //considerando che alla join contribuiscono molti nodi, anche quelli che sono appena entrati senza un coordinatore
 
         StreamObserver<Join> so_join = new StreamObserver<Join>() {
             @Override
@@ -174,7 +152,8 @@ public class HouseNode {
 
                 maybe_coordinator.add(join_reply.getCoordinator());
 
-                if (maybe_coordinator.size() >= house_list.size()*1.70 && maybe_coordinator.size()!=0){
+                //quando il maybe_coordinator contiene almeno il l'80% delle case esistenti nella rete
+                if (maybe_coordinator.size() >= house_list.size()*1.80 && maybe_coordinator.size()!=0){
                     coordinator_id = set_coordinator(maybe_coordinator);
 
                     if (coordinator_id == -1) //se nessuno ha un coordinatore, allora si elegge
@@ -186,8 +165,8 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                System.out.println("ERROR - JOIN-CLIENT"+throwable.getMessage() );
-                throwable.printStackTrace();
+                System.out.println("----------");
+                System.err.println("ERROR - JOIN-CLIENT "+throwable.getMessage() );
             }
 
             @Override
@@ -200,22 +179,23 @@ public class HouseNode {
     }
 
     private int set_coordinator(ArrayList<Integer> arr){
-        //se almeno il 70% dei nodi mi risponde, setto il coordinatore in base ai loro dati
+        int[] occ = new int[house_list.size()];
+        //conto occorrenze
+        for (Integer i : arr){
+            occ[i+1]++; //+1 perchè il coordinatore nullo è rappresentato da -1, quindi shifto di un valore
+        }
 
-            int[] occ = new int[house_list.size()];
-            //conto occorrenze
-            for (Integer i : arr){
-                occ[i]++;
-            }
-
-            //prendo l'id con più occorrenze
-            int max = -1;
-            for (Integer i : occ){
-                if (max < i)
-                    max = i;
-            }
-
-            return max;
+        //prendo l'id con più occorrenze
+        int max = -1;
+        int index = 0;
+        for (int i = 0; i < arr.size(); i++) {
+          if (occ[i] > max) {
+            max = occ[i];
+            index = i;
+          }
+        }
+        return index-1; //restituisco index, che rappresenta l'indice in cui ci sono più occorrenze, e sottraggo 1
+                        //perchè avevo shiftato di 1
     }
 
     //---------------------------------------------------Quando si accoglie una nuova casa (SERVER)
@@ -228,8 +208,182 @@ public class HouseNode {
         return coordinator_id;
     }
 
+  // ---------------------------------------------------Quando invio una misurazione (CLIENT)
+    public synchronized void SendStat() {
+        if (house_values.size() == 0) return;
+
+        ArrayList<Measurement> m_to_remove = new ArrayList<Measurement>();
+        for (Measurement m : house_values) {
+
+          // Measurement m = house_values.get(house_values.size()-1);
+
+          Statistic.Builder stat = Statistic.newBuilder();
+          stat.setType("STAT");
+          stat.setValue(m.getValue());
+          stat.setTimestamp(m.getTimestamp());
+          stat.setMeasurementId(Integer.parseInt(m.getId()));
+          stat.setHouseId(Integer.parseInt(id));
+
+          Statistic stat_message = stat.build();
+
+          final int[] i = new int[1];
+
+          ArrayList<Integer> list = new ArrayList<Integer>(house_list.keySet());
+      StreamObserver<Statistic> so_stat =
+          new StreamObserver<Statistic>() {
+            @Override
+            public void onNext(Statistic statistic_reply) {
+              if (list.contains(statistic_reply.getHouseId())) {
+                i[0]++;
+                list.remove(list.indexOf(statistic_reply.getHouseId()));
+              }
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+              System.out.println("----------");
+              System.err.println("\nERROR - SEND_STAT-CLIENT: " + throwable.getMessage());
+              if (throwable.getMessage().matches("UNAVAILABLE")) i[0]++;
+            }
+
+            @Override
+            public void onCompleted() {
+              // se ho un errore di connessione e la somma di tutti i messaggi è uguale
+              if (checkMiss(i[0], list))
+              // se è a true, significa che è stato rimosso anche il coordinatore ed è da
+              // inviare nuovamente la media
+              {
+                startElection(Integer.parseInt(id)); // quindi si elegge un nuovo coordinatore
+                SendStat(); // si manda la media
+              }
+              else
+                  diffuseStat();
+            }
+          };
+
+          for (House h : house_list.values())
+            new Thread(new HouseBroadcast(h.port, stat_message, so_stat)).start();
+
+        m_to_remove.add(m); //dopo averla usata, si rimuove
+        }
+
+        for (int j=0; j<m_to_remove.size(); j++){
+            house_values.remove(m_to_remove.get(j));
+        }
+    }
+
+    public void diffuseStat(){
+        Measurement m = res_values.get(res_values.size()-1);
+        Statistic.Builder stat = Statistic.newBuilder();
+        stat.setType("STAT");
+        stat.setValue(m.getValue());
+        stat.setTimestamp(m.getTimestamp());
+        stat.setMeasurementId(Integer.parseInt(m.getId()));
+        stat.setHouseId(Integer.parseInt(id));
+        stat.setReply(true);
+
+        Statistic stat_message = stat.build();
+
+        StreamObserver<Statistic> so_diffuse = new StreamObserver<Statistic>() {
+            @Override
+            public void onNext(Statistic statistic) {
+
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+
+            }
+
+            @Override
+            public void onCompleted() {
+
+            }
+        };
+        for (House h : house_list.values())
+            new Thread(new HouseBroadcast(h.port, stat_message, so_diffuse)).start();
+
+    }
+    /*
+    * Aggiorno la lista delle case e controllo se tra i messaggi mancanti ci sia anche l'amministratore
+    *
+    * Nel OnNext e OnError ho incrementato un indice per sapere quante sono le risposte totali (andate male e bene)
+    * Nell'OnNext invece scarto le risposte andate bene
+    *
+    * Nel checkMiss controllo questi valori, se ho come indice un numero == al numero di messaggi nviati (house_list.size)
+    * e, ma la lista.size> 1, cioè ci sono case non scartate, vuol dire che queste sono cadute prima del previsto
+    *
+    * Considerando che l'invio di statistiche è l'azione più frequente di tutte, penso che sia sufficente fare solo in questa chiamata la pulizia di nodi deceduti in modo improvviso
+    * */
+
+    public synchronized boolean checkMiss(int all_resp, ArrayList<Integer> list){
+        boolean return_bool = false;
+        if (all_resp == house_list.size() && list.size() > 0)
+            for (Integer i:list)    //per ogni indice rimasto controllo se è raggiungibile, se no, si elimina dalla lista
+            {
+                //Sincrona la prova di connessione
+                final ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", house_list.get(i).port).usePlaintext(true).build();
+                HouseServiceGrpc.HouseServiceBlockingStub stub = HouseServiceGrpc.newBlockingStub(channel);
+
+                Join join_m = null;
+                try
+                {
+                    join_m= stub.checkConnection(join_m);
+                }
+                catch (StatusRuntimeException e){
+                    System.err.println("CASA "+house_list.get(i).id+" NON RAGGIUNGIBILE - Rimozione in corso");
+                    if(i == coordinator_id) //se l'id che ho provato è il coordinatore, nuova elezione
+                        return_bool = true;
+                    toRest.rm_from_server(house_list.get(i)); //mi occupo anche di segnalare al server rest che ci sono case rimosse
+                    house_list.remove(i);
+
+                }
+                if (join_m!=null) //ha successo la comunicazione
+                    System.err.println("Si era perso un messaggio con casa "+house_list.get(i).id+", la casa è ancora attiva");
+
+                channel.shutdown();
+            }
+        return return_bool;
+    }
+
+
+    //---------------------------------------------------Quando si riceve una misurazione dagli altri (SERVER)
+    public synchronized Integer MeanStat_SendStat(int house_id, int measure_id, Double measure) {
+
+        int house_list_size;
+
+        //se l'ultima misurazione mandata al serverRest è < dell'attuale, significa che quella attuale è aggiornata
+        if (house_list.containsKey(house_id)) { //se sto valutando la misurazione di una casa che non è più connessa alla rete, ignoro la misurazione
+
+            if (house_list.get(house_id).last_measurement_mean_id <= measure_id) {
+                house_list.get(house_id).last_measurement_mean_id = measure_id; //aggiorno l'id
+                buffer.put(house_id, measure);
+
+            }
+        } else buffer.remove(house_id); //se sto considerando il valore di una casa non più connessa, la rimuovo
+
+        //ho le misurazioni di tutte le case, faccio la media e inivio.
+        if (buffer.size() >= house_list.size()) {
+            Double mean = 0d;
+            for (Double d : buffer.values())
+                mean += d;
+            mean /= buffer.size();
+            buffer.clear();
+            last_measurement_resident_to_rest++;
+
+            res_values.add(new Measurement((last_measurement_resident_to_rest + ""), null, mean, System.currentTimeMillis()));
+            //infine mando al rest i dati della media
+            send_values();
+            return last_measurement_resident_to_rest;
+        }
+        return null; //non ho abbastanza valori per fare la media
+    }
+
     //---------------------------------------------------Quando viene segnalata l'ustica (CLIENT)
     public void Leave(){
+
+        toRest.rm_from_server(house); //comunico al server rest che la casa abbandona la rete
+
         Leave.Builder leave = Leave.newBuilder();
         leave.setType("LEAVE");
         leave.setId(Integer.parseInt(id));
@@ -261,31 +415,35 @@ public class HouseNode {
             house_list.remove(id_h);
 
         if (coordinator)
-            Election(Integer.parseInt(id)); //chiamo l'elezione con il mio nome
+            startElection(Integer.parseInt(id)); //chiamo l'elezione con il mio nome
     }
 
     //---------------------------------------------------Quando si indice ad una elezione (CLIENT)
     public int startElection(int id_h){
 
+        //tutti i nodi che fanno un'elezione inizializzano i valori del coordinatore
+        coordinator_id = -1;
+        coordinator = false;
+
         ArrayList<House> index = new ArrayList<House>();
         for(House i: house_list.values())
-            if (i.id > id_h) //id_h è colui che ha chiamato l'elezione, cioè me stesso.
+            if (i.id > Integer.parseInt(id)) //il nodo memorizza chi è più grande
                 index.add(i);
 
         if (index.size() == 0) //non c'è nessuno più grande
         {
-            ForPresident(); //divento coordinatore perchè so già di essere adatto, quindi escludo potenziali nuovi arrivati
-            return coordinator_id; //modificato da forPresident
+            imThePresident(); //divento coordinatore perchè so già di essere adatto, quindi escludo potenziali nuovi arrivati
         }
 
         else
-        {
+        {//mando messaggi per eleggere
             Election.Builder election = Election.newBuilder();
             election.setType("ELECTION");
             election.setHouseId(Integer.parseInt(id));
             election.setReply(false);
             Election election_message = election.build();
 
+            final int[] i = new int[1];
             StreamObserver<Election> so_election = new StreamObserver<Election>() {
                 @Override
                 public void onNext(Election election_reply) {
@@ -295,53 +453,61 @@ public class HouseNode {
 
                 @Override
                 public void onError(Throwable throwable) {
-                    System.out.println("ERROR - ELECTION-CLIENT"+throwable.getMessage() );
-                    throwable.printStackTrace();
+                    System.err.println("ERROR - ELECTION-CLIENT"+throwable.getMessage() );
+                //devo gestire la situazione in cui ho n nodi più grandi di me e nessuno risponde
+                    if (throwable.getMessage().matches("UNAVAILABLE"))
+                        i[0]++;
+                    if(i[0]==index.size())//nessuno ha risposto
+                        imThePresident();
                 }
 
                 @Override
                 public void onCompleted() {  }
             };
 
-            for (House i:index)
-                new Thread(new HouseBroadcast(i.port, election_message, so_election)).start();
+            for (House h:index)
+                new Thread(new HouseBroadcast(h.port, election_message, so_election)).start();
 
         }
+        return -1;
     }
 
     //---------------------------------------------------Quando si risponde ad una elezione (SERVER)
-    public synchronized int Election(int id_h){
+    public int Election(int id_h){
            return startElection(Integer.parseInt(id));
 
     }
 
-    //---------------------------------------------------Quando TERMINA L'ELEZIONE (CLIENT)
-    public synchronized void ForPresident(){
+   //---------------------------------------------------Quando TERMINA L'ELEZIONE (CLIENT)
+    public synchronized void imThePresident(){
 
+            System.out.println("SONO IL PRESIDENTE");
         coordinator_id = Integer.parseInt(id);
         coordinator = true;
 
-        President.Builder president = President.newBuilder();
+        Election.Builder president = Election.newBuilder();
         president.setType("PRESIDENT");
         president.setHouseId(coordinator_id);
-        President president_message = president.build();
+        Election president_message = president.build();
 
-        StreamObserver<President> so_president = new StreamObserver<President>() {
+        StreamObserver<Election> so_president = new StreamObserver<Election>() {
             @Override
-            public void onNext(President president) { }
+            public void onNext(Election president) { }
 
             @Override
             public void onError(Throwable throwable) {
-                System.out.println("ERROR - PRESIDENT-CLIENT"+throwable.getMessage() );
-                throwable.printStackTrace();
+             //   if(throwable.getMessage().toUpperCase().matches("(.*)without a response(.*)"))
+                    System.out.println("Non ci sono case con cui comunicare");
+                System.err.println("ERROR - PRESIDENT-CLIENT "+throwable.getMessage() );
             }
 
             @Override
             public void onCompleted() { }
         };
 
-        for (House h : house_list.values())
-            new Thread(new HouseBroadcast(h.port, president_message, so_president)).start();
+        if(house_list.size()>1)
+            for (House h : house_list.values())
+                new Thread(new HouseBroadcast(h.port, president_message, so_president)).start();
 
     }
 

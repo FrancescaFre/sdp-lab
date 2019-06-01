@@ -3,6 +3,7 @@ import SumEx.SumGrpc;
 import SumEx.SumEx_outer.Input;
 import SumEx.SumEx_outer.Output;
 
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -14,19 +15,19 @@ import java.util.concurrent.TimeUnit;
 public class SumClient {
     public static void main(String[] argv) {
         System.out.println("----------------Simple Sum Sync");
-        //SimpleSumSynch ();
+        SimpleSumSynch ();
 
         System.out.println("----------------Simple Sum ASynch");
         SimpleSumAsynch();
 
         System.out.println("----------------Repeated Sum Sync");
-       // RepeatedSumSync();
+      // RepeatedSumSync();
 
         System.out.println("----------------Repeated Sum ASync");
         //RepeatedSumAsynch();
 
         System.out.println("----------------Stream Sum");
-        StreamSum();
+       // StreamSum();
 
     }
 
@@ -40,9 +41,16 @@ public class SumClient {
         SumGrpc.SumBlockingStub stub = SumGrpc.newBlockingStub(channel);
 
         Input request = NewInput();
+        Output response = null;
+        try {
+            response= stub.simpleSum(request);
 
-        Output response = stub.simpleSum(request);
-        System.out.println("SimpleSum Sincrono: "+response.getRes());
+        }catch (StatusRuntimeException e){
+            System.err.println("SERVER NON RAGGIUNGIBILE");
+            System.err.println(e.getStatus());
+        }
+        if (response!=null)
+            System.out.println("SimpleSum Sincrono: "+response.getRes());
 
         channel.shutdown();
     }
@@ -58,12 +66,15 @@ public class SumClient {
             @Override
             public void onNext(Output output) {
                 System.out.println("SimpleSum Asincrono: "+output.getRes());
+
             }
 
             @Override
             public void onError(Throwable throwable) {
                 System.err.println("SimpleSum Asincrono Error " +throwable.getMessage());
-                throwable.printStackTrace();
+               // throwable.printStackTrace();
+                if (throwable instanceof StatusRuntimeException)
+                        System.err.println(((StatusRuntimeException) throwable).getStatus());
             }
 
             @Override
@@ -74,6 +85,7 @@ public class SumClient {
         };
 
         stub.simpleSum(request, so_simple);
+//        stub.withDeadlineAfter(20, TimeUnit.SECONDS).simpleSum(request, so_simple);
         bgUaiting(channel);
     }
 
@@ -120,7 +132,7 @@ public class SumClient {
             }
         };
 
-        stub.repeatedSum(request, so_repeated);
+        stub.withDeadlineAfter(5, TimeUnit.SECONDS).repeatedSum(request, so_repeated);
         bgUaiting(channel);
     }
 
