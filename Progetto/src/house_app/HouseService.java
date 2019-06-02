@@ -1,7 +1,5 @@
 package house_app;
 
-import House_Message.HM_outer;
-import House_Message.HouseServiceGrpc;
 import House_Message.HouseServiceGrpc.*;
 
 import House_Message.HM_outer.Join;
@@ -9,13 +7,9 @@ import House_Message.HM_outer.Election;
 import House_Message.HM_outer.Leave;
 import House_Message.HM_outer.Boost;
 import House_Message.HM_outer.Statistic;
-//import House_Message.HM_outer.President;
 
 import io.grpc.stub.StreamObserver;
-import message_measurement.House;
-import simulation_src_2019.Measurement;
 
-import javax.ws.rs.core.Response;
 
 
 public class HouseService extends HouseServiceImplBase{
@@ -81,15 +75,18 @@ public class HouseService extends HouseServiceImplBase{
     }
 
     //---------------------------------------------------ELEZIONE
-    @Override
-    public void coordinatorElection(Election request, StreamObserver<Election> response){
 
-       node.Election(request.getHouseId());
+    @Override
+    public void coordinatorElection(Election request, StreamObserver<Election> response) {
+
+        node.Election(request.getHouseId());
 
         Election.Builder electionReply = Election.newBuilder();
 
         electionReply.setType("ELECTION");
         electionReply.setReply(true);
+        System.err.println("sONO DENTRO SERVER NODE ID: "+node.id);
+        electionReply.setHouseId(Integer.parseInt(node.id));
 
         response.onNext(electionReply.build());
         response.onCompleted();
@@ -104,7 +101,10 @@ public class HouseService extends HouseServiceImplBase{
     //---------------------------------------------------President
     @Override
     public void imThePresident(Election request, StreamObserver<Election> responseObserver) {
-        node.coordinator_id = request.getHouseId(); //memorizzo il nuovo coordinatore
+    if (node.coordinator_id != request.getHouseId()) {
+          node.coordinator_id = request.getHouseId(); // memorizzo il nuovo coordinatore
+          node.coordinator = false;
+        }
         responseObserver.onNext(Election.newBuilder().build());
         responseObserver.onCompleted();
     }

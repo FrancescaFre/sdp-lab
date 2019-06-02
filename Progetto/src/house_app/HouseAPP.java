@@ -82,8 +82,6 @@ public class HouseAPP {
         }
 
         //-------------------------------------------------Settaggio delle ultime istanze
-        //la lista esiste la ordino (serve?)
-        house_list.sort(House::compareTo);
 
         //creo il nodo della casa
         HouseNode node = new HouseNode(house_list, toREST, house);
@@ -95,8 +93,6 @@ public class HouseAPP {
         SmartMeterSimulator sm = new SmartMeterSimulator(measurement);
         sm.start();
 
-        //start lato server gprc del nodo
-        new Thread(new HouseServer(node, port)).start();
         //-------------------------------------------------Inizio dell'interfaccia utente
         b=false;
         String ris;
@@ -119,8 +115,10 @@ public class HouseAPP {
                 {
                     case 1://chiudi la sessione - Leave
                             b = true;
+                            node.Leave();
                             break;
                     case 2: //boost
+                        Boost(sm);
                             break;
                     case 3://leggi il coordinatore
                             System.out.println("Questa casa con id " +node.id+ "\nha come coordinatore: "+node.coordinator_id+" ed è coordinatore? "+ node.coordinator);
@@ -142,4 +140,12 @@ public class HouseAPP {
         //fine main
     }
 
+    public static void Boost(SmartMeterSimulator sm) {
+        try{
+            System.err.println("BOOOOOOOOST");
+        sm.boost();
+        System.err.println("wWWWWWWWwwww");
+    } catch (InterruptedException e){e.printStackTrace();}
+
+        }
 }

@@ -4,6 +4,7 @@ import House_Message.HM_outer.*;
 import House_Message.HouseServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import message_measurement.House;
@@ -13,8 +14,7 @@ import simulation_src_2019.Measurement;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.*;
 
 
 public class HouseNode {
@@ -38,6 +38,7 @@ public class HouseNode {
 
     HouseCli toRest;
 
+    //-----------------Boost
     //Costruttore
     public HouseNode(ArrayList<House> h, HouseCli rest_cli, House hh) {
         house = hh;
@@ -51,6 +52,8 @@ public class HouseNode {
         for (int i = 0; i < h.size(); i++) {
             house_list.put(h.get(i).id, h.get(i));
         }
+        //start lato server gprc del nodo
+        new Thread(new HouseServer(this, port)).start();
 
         Join(); //grpc di presentazione
     }
@@ -66,7 +69,7 @@ public class HouseNode {
         Timestamp ts = new Timestamp(time);
         DateFormat formatter = new SimpleDateFormat("dd/mm/yy HH:mm:ss");
         if(residence_val)
-            System.out.println("<Residence : " + formatter.format(ts) + " : "+(last_measurement_resident_to_rest) +"> Valore consumo " + val +" Watt");
+            System.out.println("<Residence : " + formatter.format(ts) + "> Valore consumo " + val +" Watt");
         else
             System.out.println("<House-" + id + " : " + formatter.format(ts) + " : "+(last_measurement_house_to_rest) +"> Valore consumo " + val +" Watt");
     }
@@ -87,10 +90,11 @@ public class HouseNode {
         }
 
     // se non c'è il coordinatore, fermo il sendStat
-        if (coordinator) // se esiste il coordinatore
+        if (coordinator_id != -1) // se esiste il coordinatore
         {
             SendStat();
         }else{
+            System.err.println("Chiamata in send_house per mancato coordinator ");
             startElection(Integer.parseInt(id));
             SendStat();
         }
@@ -104,11 +108,10 @@ public class HouseNode {
         Measurement m_to_send;
         //confronto l'ultimo id generato nella lista dei valori con la variabile che si memorizza l'ultimo valore inviato
         // invio i valori della residenza se sono aggiornati
-        if (last_measurement_resident_to_rest < lastMeanRes) {
+        if (last_measurement_resident_to_rest < lastMeanRes && coordinator) { //se sono coordinatore invio info
             m_to_send = res_values.get(res_values.size()-1);
             toRest.send_values(house,coordinator, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()), null);
             last_measurement_resident_to_rest = lastMeanRes;
-
             diffuseStat();
         }
     }
@@ -124,10 +127,10 @@ public class HouseNode {
         {
             //se la lista di case è composto solo da un nodo (cioè me stesso) si autoelegge come coordinatore
             imThePresident();
-
             return;
         }
 
+        System.err.println("START JOIN ------");
         Join.Builder join = Join.newBuilder();
         join.setType("JOIN");
         join.setHouseId(Integer.parseInt(this.id));
@@ -152,16 +155,20 @@ public class HouseNode {
                     house_list.put(join_reply.getHouseId(), new_h);
                 }
 
-                maybe_coordinator.add(join_reply.getCoordinator());
+                if (join_reply.getHouseId() != Integer.parseInt(id))
+                    maybe_coordinator.add(join_reply.getCoordinator());
 
                 //quando il maybe_coordinator contiene almeno il l'80% delle case esistenti nella rete
-                if (maybe_coordinator.size() >= house_list.size()*1.80 && maybe_coordinator.size()!=0){
+                //if (maybe_coordinator.size() >= house_list.size()*(0.8) && maybe_coordinator.size()!=0){
+
+                //-1 perchè escludo me stesso
+                if (maybe_coordinator.size() >= (house_list.size()-1) && maybe_coordinator.size()!=0){
                     coordinator_id = set_coordinator(maybe_coordinator);
 
                     if (coordinator_id == -1) //se nessuno ha un coordinatore, allora si elegge
                         Election(Integer.parseInt(id));
-                    if (coordinator_id == Integer.parseInt(id)) //se il coordinatore sono io, mi setto a true
-                        coordinator = true;
+                    if (coordinator_id == Integer.parseInt(id))
+                        imThePresident();     //se il coordinatore sono io, mi setto a true
                 }
             }
 
@@ -169,11 +176,11 @@ public class HouseNode {
             public void onError(Throwable throwable) {
                 System.out.println("----------");
                 System.err.println("ERROR - JOIN-CLIENT "+throwable.getMessage() );
+                throwable.printStackTrace();
             }
 
             @Override
-            public void onCompleted() {
-            }
+            public void onCompleted() {}
         };
 
         for (House h : house_list.values())
@@ -181,23 +188,22 @@ public class HouseNode {
     }
 
     private int set_coordinator(ArrayList<Integer> arr){
-        int[] occ = new int[house_list.size()];
-        //conto occorrenze
-        for (Integer i : arr){
-            occ[i+1]++; //+1 perchè il coordinatore nullo è rappresentato da -1, quindi shifto di un valore
-        }
+      Hashtable<Integer, Integer> hashtable = new Hashtable<Integer, Integer>();
+      for (Integer i : arr)
+          hashtable.put(i, 0);
+      for (Integer i : arr)
+          hashtable.put(i, hashtable.get(i) + 1);
 
-        //prendo l'id con più occorrenze
-        int max = -1;
-        int index = 0;
-        for (int i = 0; i < arr.size(); i++) {
-          if (occ[i] > max) {
-            max = occ[i];
-            index = i;
+      int max = -1;
+      int index = -1;
+      for (Integer i: hashtable.keySet())
+          if (hashtable.get(i) > max)
+          {
+              max = hashtable.get(i);
+              index = i;
           }
-        }
-        return index-1; //restituisco index, che rappresenta l'indice in cui ci sono più occorrenze, e sottraggo 1
-                        //perchè avevo shiftato di 1
+
+      return index;
     }
 
     //---------------------------------------------------Quando si accoglie una nuova casa (SERVER)
@@ -230,21 +236,27 @@ public class HouseNode {
           final int[] i = new int[1];
 
           ArrayList<Integer> list = new ArrayList<Integer>(house_list.keySet());
-          StreamObserver<Statistic> so_stat =
+      StreamObserver<Statistic> so_stat =
           new StreamObserver<Statistic>() {
             @Override
             public void onNext(Statistic statistic_reply) {
               if (list.contains(statistic_reply.getHouseId())) {
-                i[0]++;
-                list.remove(list.indexOf(statistic_reply.getHouseId()));
+                synchronized (HouseNode.this) {
+                  i[0]++;
+                  list.remove(list.indexOf(statistic_reply.getHouseId()));
+                }
               }
             }
 
             @Override
             public void onError(Throwable throwable) {
+              StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
+
               System.out.println("----------");
               System.err.println("\nERROR - SEND_STAT-CLIENT: " + throwable.getMessage());
-              if (throwable.getMessage().matches("UNAVAILABLE")) i[0]++;
+              // if (throwable.getMessage().matches("UNAVAILABLE"))
+              if (statusRuntimeException.getStatus().equals(Status.UNAVAILABLE))
+                synchronized (HouseNode.this) { i[0]++; }
             }
 
             @Override
@@ -254,7 +266,7 @@ public class HouseNode {
               // se è a true, significa che è stato rimosso anche il coordinatore ed è da
               // inviare nuovamente la media
               {
-                System.err.println("Dentro checkMiss");
+                System.err.println(" ---------------- Dentro checkMiss");
                 startElection(Integer.parseInt(id)); // quindi si elegge un nuovo coordinatore
                 SendStat(); // si manda la media
               }
@@ -287,10 +299,14 @@ public class HouseNode {
 
     public synchronized boolean checkMiss(int all_resp, ArrayList<Integer> list){
         boolean return_bool = false;
+
+        if (list.size() > 0)
+
         if (all_resp == house_list.size() && list.size() > 0)
             for (Integer i:list)    //per ogni indice rimasto controllo se è raggiungibile, se no, si elimina dalla lista
             {
                 //Sincrona la prova di connessione
+
                 final ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", house_list.get(i).port).usePlaintext(true).build();
                 HouseServiceGrpc.HouseServiceBlockingStub stub = HouseServiceGrpc.newBlockingStub(channel);
 
@@ -305,7 +321,6 @@ public class HouseNode {
                         return_bool = true;
                     toRest.rm_from_server(house_list.get(i)); //mi occupo anche di segnalare al server rest che ci sono case rimosse
                     house_list.remove(i);
-
                 }
                 if (join_m!=null) //ha successo la comunicazione
                     System.err.println("Si era perso un messaggio con casa "+house_list.get(i).id+", la casa è ancora attiva");
@@ -367,7 +382,6 @@ public class HouseNode {
             @Override
             public void onError(Throwable throwable) {
                 System.err.println("\nERROR - SEND_DIFFUSE_STAT-CLIENT: " + throwable.getMessage());
-
             }
 
             @Override
@@ -420,8 +434,9 @@ public class HouseNode {
     }
 
     //---------------------------------------------------Quando si indice ad una elezione (CLIENT)
-    public int startElection(int id_h){
+    public void startElection(int id_h){
 
+        System.err.println("START ELECTION");
         //tutti i nodi che fanno un'elezione inizializzano i valori del coordinatore
         coordinator_id = -1;
         coordinator = false;
@@ -431,11 +446,12 @@ public class HouseNode {
             if (i.id > Integer.parseInt(id)) //il nodo memorizza chi è più grande
                 index.add(i);
 
+        System.err.println("dimensione di index "+index.size());
+
         if (index.size() == 0) //non c'è nessuno più grande
         {
             imThePresident(); //divento coordinatore perchè so già di essere adatto, quindi escludo potenziali nuovi arrivati
         }
-
         else
         {//mando messaggi per eleggere
             Election.Builder election = Election.newBuilder();
@@ -444,20 +460,21 @@ public class HouseNode {
             election.setReply(false);
             Election election_message = election.build();
 
-            final int[] i = new int[1];
+            final int[] i = {0};
             StreamObserver<Election> so_election = new StreamObserver<Election>() {
                 @Override
                 public void onNext(Election election_reply) {
-                    if (election_reply.getReply())  //se ho una risposta, questa conterrà l'id del coordinatore
-                        coordinator_id = election.getHouseId() != -1 ? election_reply.getHouseId() : -1;
+//
                 }
 
                 @Override
                 public void onError(Throwable throwable) {
-                    System.err.println("ERROR - ELECTION-CLIENT"+throwable.getMessage() );
+                    StatusRuntimeException statrun = (StatusRuntimeException) throwable;
+                    System.err.println("ERROR - ELECTION-CLIENT"+statrun.getStatus() );
                 //devo gestire la situazione in cui ho n nodi più grandi di me e nessuno risponde
-                    if (throwable.getMessage().matches("UNAVAILABLE"))
-                        i[0]++;
+                    if (statrun.getStatus().equals(Status.UNAVAILABLE))
+                      synchronized (HouseNode.this){ i[0]++; }
+
                     if(i[0]==index.size())//nessuno ha risposto
                         imThePresident();
                 }
@@ -466,16 +483,15 @@ public class HouseNode {
                 public void onCompleted() {  }
             };
 
-            for (House h:index)
-                new Thread(new HouseBroadcast(h.port, election_message, so_election)).start();
+      for (House h : index)
+        new Thread(new HouseBroadcast(h.port, election_message, so_election)).start();
 
         }
-        return -1;
     }
 
     //---------------------------------------------------Quando si risponde ad una elezione (SERVER)
-    public int Election(int id_h){
-           return startElection(Integer.parseInt(id));
+    public void Election(int id_h){
+            startElection(Integer.parseInt(id));
 
     }
 
