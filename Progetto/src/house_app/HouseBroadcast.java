@@ -36,18 +36,16 @@ public class HouseBroadcast implements Runnable {
         election = message;
         if (message.getType().equals("Election"))
             choose = 1;
-        else
+        else if (message.getType().equals("PRESIDENT"));
             choose =2;
     }
-
-
 
     public HouseBroadcast(int port, Statistic message, StreamObserver so)
     {
         streamObserver = so;
         channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
         statistic = message;
-        if (!message.getReply()) //se è falso viene mandato una volta
+        if (!message.getReply())
             choose = 3;
         else
             choose = 4;  //è il messaggio che il coordinatore manda a tutti con le stat giuste

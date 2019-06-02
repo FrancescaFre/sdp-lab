@@ -30,29 +30,17 @@ public class HouseService extends HouseServiceImplBase{
     @Override
     public void sendStat(Statistic request, StreamObserver<Statistic> response){
 
-        if (request.getReply()) //se è un reply vuol dire che devo diffondere il messaggio del coordinatore
+        //se è un reply vuol dire che devo diffondere il messaggio del coordinatore e l'id è nuovo, aggiorno
+        if (request.getReply()){
             node.print_value(request.getValue(), request.getTimestamp(), true); //quindi appena arriva una misurazione, questa viene stampata - MEDIA DEL CONDOMINIO
-
+            response.onNext(Statistic.newBuilder().build());
+        }
+        else {
         Integer progressive_residence_mean_id = node.MeanStat_SendStat(request.getHouseId(), request.getMeasurementId(), request.getValue());
-            System.out.println("---------------------"+progressive_residence_mean_id);
-
-    if (progressive_residence_mean_id != null) {
-          Statistic.Builder statisticReply = Statistic.newBuilder();
-
-          statisticReply.setType("STAT");
-          statisticReply.setValue(node.res_values.get(node.res_values.size() - 1).getValue());
-          statisticReply.setTimestamp(System.currentTimeMillis());
-          statisticReply.setMeasurementId(progressive_residence_mean_id);
-          statisticReply.setHouseId(Integer.parseInt(node.id));
-
-          statisticReply.setReply(true);
-
-          statisticReply.build();
-
-          response.onNext(statisticReply.build());
+            response.onNext(Statistic.newBuilder().setHouseId(Integer.parseInt(node.id)).build());
         }
 
-        response.onCompleted();
+     response.onCompleted();
     }
 
     //---------------------------------------------------JOIN
@@ -92,7 +80,6 @@ public class HouseService extends HouseServiceImplBase{
         response.onCompleted();
     }
 
-
     //---------------------------------------------------ELEZIONE
     @Override
     public void coordinatorElection(Election request, StreamObserver<Election> response){
@@ -118,13 +105,15 @@ public class HouseService extends HouseServiceImplBase{
     @Override
     public void imThePresident(Election request, StreamObserver<Election> responseObserver) {
         node.coordinator_id = request.getHouseId(); //memorizzo il nuovo coordinatore
+        responseObserver.onNext(Election.newBuilder().build());
         responseObserver.onCompleted();
     }
 
-
     //---------------------------------------------------President
     @Override
-public void checkConnection (Join request, StreamObserver<Join> response){
+    public void checkConnection (Join request, StreamObserver<Join> response){
+
+        response.onNext(Join.newBuilder().build());
         response.onCompleted();
     }
 }
