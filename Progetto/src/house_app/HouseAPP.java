@@ -96,8 +96,7 @@ public class HouseAPP {
                 switch (Integer.parseInt(ris))
                 {
                     case 1://chiudi la sessione - Leave
-                            b = true;
-                            node.leave();
+                            close();
                             break;
                     case 2: //boost
                             node.boost();
@@ -112,15 +111,16 @@ public class HouseAPP {
                 }
 
         }while (!b);
-        close();
         //fine main
     }
 
     public static void close(){
         System.err.println("CHIUSURA APP");
+
+        node.leave();
+
         sm.stopMeGently();
-        b=true;
-        toREST.rm_from_server(house);
+
         toREST.close();
 
         b=true;

@@ -43,7 +43,7 @@ public class AdminServer {
     }
 
     @Path("house/rm/")
-    @PUT
+    @POST
     @Consumes({"application/json"})
     public Response rm_house(House h) {
         if (Residence.getInstance().rm_house_to_list(h))

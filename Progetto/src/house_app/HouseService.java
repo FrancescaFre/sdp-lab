@@ -42,13 +42,13 @@ public class HouseService extends HouseServiceImplBase{
     //---------------------------------------------------RIMOZIONE
     @Override
     public void leaveNetwork (Leave request, StreamObserver<Leave> response){
-
-        node.goodbye(request.getId(), request.getCoordinator());
-
         Leave.Builder leaveReply = Leave.newBuilder();
+        if (request.getId() != Integer.parseInt(node.id)) {
+          node.goodbye(request.getId(), request.getCoordinator());
 
-        leaveReply.setId(Integer.parseInt(node.id));
-        leaveReply.setCoordinator(false);
+          leaveReply.setId(Integer.parseInt(node.id));
+          leaveReply.setCoordinator(false);
+        }
 
         response.onNext(leaveReply.build());
         response.onCompleted();

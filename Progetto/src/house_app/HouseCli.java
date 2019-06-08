@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
+import javax.swing.plaf.synth.SynthScrollBarUI;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -69,9 +70,10 @@ public class HouseCli{
 
     //RIMOZIONE DAL SERVER
     public Boolean rm_from_server(House house) {
-        //Response response = target.path("server").path("/house/rm").request().post(Entity.entity(house, MediaType.APPLICATION_JSON));
-        Response response = catchConnectionError(target.path("server").path("/house/rm"), house, null, null, null);
+       //Response response = target.path("server").path("/house/rm").request().post(Entity.entity(house, MediaType.APPLICATION_JSON));
+       Response response = catchConnectionError(target.path("server").path("/house/rm"), house, null, null, null);
         if(response == null) return null;
+
 
         if (response.getStatus() != 200){
             System.err.println(response.readEntity(String.class)+" - " + response.getStatus());

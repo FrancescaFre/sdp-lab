@@ -263,6 +263,7 @@ public class HouseNode {
     //---------------------------------------------------Quando viene comunicata l'uscita (CLIENT)
     public void leave(){
 
+        System.err.println("uscita");
         toRest.rm_from_server(house); //comunico al server rest che la casa abbandona la rete
 
         Leave.Builder leave = Leave.newBuilder();
@@ -288,6 +289,7 @@ public class HouseNode {
 
         for (House h : house_list.values())
             new Thread(new HouseBroadcast(h.port, leave_message, so_leave)).start();
+        System.err.println("uscita fine");
     }
 
     //---------------------------------------------------Quando si saluta una casa (SERVER)
@@ -295,6 +297,7 @@ public class HouseNode {
         if (house_list.containsKey(id_h))
             house_list.remove(id_h);
 
+        System.out.println("goodbye");
         if (coordinator)
             startElection(); //chiamo l'elezione con il mio nome
     }
