@@ -10,12 +10,12 @@ import io.grpc.stub.StreamObserver;
 import message_measurement.House;
 import message_measurement.SensorMeasurement;
 import simulation_src_2019.Measurement;
+import simulation_src_2019.SmartMeterSimulator;
 
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-
 
 public class HouseNode {
 
@@ -23,15 +23,27 @@ public class HouseNode {
     House house;
     String id;
     int port;
+    public Thread server;
 
     ArrayList<Measurement> house_values = new ArrayList<Measurement>();
     ArrayList<Measurement> res_values = new ArrayList<Measurement>();
     final Hashtable<Integer, House> house_list = new Hashtable<Integer, House>();
 
     int coordinator_id;
+    SmartMeterSimulator simulator;
 
     //------------------Cose da coordinatore
     Boolean coordinator = false;
+    Boolean inElection = false;
+    synchronized public Boolean getInElection() {
+        return inElection;
+    }
+
+    synchronized public void setInElection(Boolean inElection) {
+        this.inElection = inElection;
+    }
+
+
     Hashtable<Integer, Double> buffer = new Hashtable<Integer, Double>();
     int last_measurement_resident_to_rest = -1;
     int last_measurement_house_to_rest = -1;
@@ -39,6 +51,14 @@ public class HouseNode {
     HouseCli toRest;
 
     //-----------------Boost
+    boolean isBoost = false;
+    boolean requestForBoost = false;
+    long timestampRequest = 0;
+
+    ArrayList<Integer> house_to_notify = new ArrayList<Integer>();
+    Hashtable<Integer, String> boostRequestResponse = new Hashtable<Integer, String>();
+
+
     //Costruttore
     public HouseNode(ArrayList<House> h, HouseCli rest_cli, House hh) {
         house = hh;
@@ -53,9 +73,15 @@ public class HouseNode {
             house_list.put(h.get(i).id, h.get(i));
         }
         //start lato server gprc del nodo
-        new Thread(new HouseServer(this, port)).start();
+        server = new Thread( new HouseServer(this, port));
+        server.start();
 
-        Join(); //grpc di presentazione
+        join(); //grpc di presentazione
+    }
+
+    public void setSimulator(SmartMeterSimulator sm){
+        simulator = sm;
+        simulator.start();
     }
 
     //Add Measurement
@@ -78,12 +104,16 @@ public class HouseNode {
     public void send_house_values() {
         //comunico i valori della casa al server rest
         int lastMeanHouse = Integer.parseInt(house_values.get(house_values.size()-1).getId());
+        Boolean b = false;
 
         Measurement m_to_send;
         //invio i valori della casa se sono aggiornati
         if (last_measurement_house_to_rest < lastMeanHouse){
             m_to_send = house_values.get(house_values.size()-1);
-            toRest.send_values(house,coordinator,null, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()));
+            b = toRest.send_values(house,coordinator,null, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()));
+            if(b==null)
+                HouseAPP.close();
+
             last_measurement_house_to_rest = lastMeanHouse;
 
             print_value(m_to_send.getValue(), m_to_send.getTimestamp(), false);
@@ -92,11 +122,11 @@ public class HouseNode {
     // se non c'è il coordinatore, fermo il sendStat
         if (coordinator_id != -1) // se esiste il coordinatore
         {
-            SendStat();
+            send_HouseStat();
         }else{
             System.err.println("Chiamata in send_house per mancato coordinator ");
-            startElection(Integer.parseInt(id));
-            SendStat();
+            startElection();
+            send_HouseStat();
         }
     }
 
@@ -104,24 +134,40 @@ public class HouseNode {
         //se ho almeno un valore nella residenza da inviare
         //prendo l'ultimo id generato
         int lastMeanRes = Integer.parseInt(res_values.get(res_values.size()-1).getId());
+        Boolean b = false;
 
         Measurement m_to_send;
         //confronto l'ultimo id generato nella lista dei valori con la variabile che si memorizza l'ultimo valore inviato
         // invio i valori della residenza se sono aggiornati
         if (last_measurement_resident_to_rest < lastMeanRes && coordinator) { //se sono coordinatore invio info
             m_to_send = res_values.get(res_values.size()-1);
-            toRest.send_values(house,coordinator, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()), null);
+            b = toRest.send_values(house,coordinator, new SensorMeasurement(Integer.parseInt(m_to_send.getId()), m_to_send.getValue(), m_to_send.getTimestamp()), null);
+            if(b==null)
+                HouseAPP.close();
+
             last_measurement_resident_to_rest = lastMeanRes;
-            diffuseStat();
+            send_Res_Stat();
         }
     }
+
+    //-------------------- INVIO DEI VALORI al server REST
+    public void setBoost(boolean bool){
+        if (bool) //true
+            isBoost = true;
+        if (!bool){
+            isBoost = false;
+            notifyHouse();
+            requestForBoost = false;
+        }
+    }
+    public synchronized boolean getBoost(){ return isBoost;}
 
 //-----------------------------------------------------------------------------------
 //                        ROBA per GRPC
 //-----------------------------------------------------------------------------------
 
-    //---------------------------------------------------Quando ci si presenta (CLIENT)
-    public synchronized void Join(){
+    //---------------------------------------------------Quando il nodo si presenta (CLIENT)
+    public synchronized void join(){
 
         if (house_list.size() == 1)
         {
@@ -132,12 +178,10 @@ public class HouseNode {
 
         System.err.println("START JOIN ------");
         Join.Builder join = Join.newBuilder();
-        join.setType("JOIN");
         join.setHouseId(Integer.parseInt(this.id));
         join.setPort(this.port);
         join.setIp("localhost");
         join.setCoordinator(-1);
-        join.setReply(false);
 
         Join join_message = join.build();
 
@@ -166,7 +210,7 @@ public class HouseNode {
                     coordinator_id = set_coordinator(maybe_coordinator);
 
                     if (coordinator_id == -1) //se nessuno ha un coordinatore, allora si elegge
-                        Election(Integer.parseInt(id));
+                        startElection();
                     if (coordinator_id == Integer.parseInt(id))
                         imThePresident();     //se il coordinatore sono io, mi setto a true
                 }
@@ -207,7 +251,7 @@ public class HouseNode {
     }
 
     //---------------------------------------------------Quando si accoglie una nuova casa (SERVER)
-    public synchronized int Welcome(int id_h, int port){
+    public synchronized int welcome(int id_h, int port){
         if (!house_list.containsKey(id_h))
         {   //Se non la casa, l'aggiungo
             House h = new House(id_h, port);
@@ -216,72 +260,116 @@ public class HouseNode {
         return coordinator_id;
     }
 
-  // ---------------------------------------------------Quando invio una misurazione (CLIENT)
-    public synchronized void SendStat() {
-        if (house_values.size() == 0) return;
+    //---------------------------------------------------Quando viene comunicata l'uscita (CLIENT)
+    public void leave(){
 
-        ArrayList<Measurement> m_to_remove = new ArrayList<Measurement>();
+        toRest.rm_from_server(house); //comunico al server rest che la casa abbandona la rete
 
-        for (Measurement m : house_values) {
+        Leave.Builder leave = Leave.newBuilder();
 
-          Statistic.Builder stat = Statistic.newBuilder();
-          stat.setType("STAT");
-          stat.setValue(m.getValue());
-          stat.setTimestamp(m.getTimestamp());
-          stat.setMeasurementId(Integer.parseInt(m.getId()));
-          stat.setHouseId(Integer.parseInt(id));
+        leave.setId(Integer.parseInt(id));
+        leave.setCoordinator(coordinator);
 
-          Statistic stat_message = stat.build();
+        Leave leave_message = leave.build();
 
-          final int[] i = new int[1];
-
-          ArrayList<Integer> list = new ArrayList<Integer>(house_list.keySet());
-      StreamObserver<Statistic> so_stat =
-          new StreamObserver<Statistic>() {
+        StreamObserver<Leave> so_leave = new StreamObserver<Leave>() {
             @Override
-            public void onNext(Statistic statistic_reply) {
-              if (list.contains(statistic_reply.getHouseId())) {
-                synchronized (HouseNode.this) {
-                  i[0]++;
-                  list.remove(list.indexOf(statistic_reply.getHouseId()));
-                }
-              }
-            }
+            public void onNext(Leave leave_reply) { }
 
             @Override
             public void onError(Throwable throwable) {
-              StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
-
-              System.out.println("----------");
-              System.err.println("\nERROR - SEND_STAT-CLIENT: " + throwable.getMessage());
-              // if (throwable.getMessage().matches("UNAVAILABLE"))
-              if (statusRuntimeException.getStatus().equals(Status.UNAVAILABLE))
-                synchronized (HouseNode.this) { i[0]++; }
+                System.out.println("ERROR - LEAVE-CLIENT"+throwable.getMessage() );
+                throwable.printStackTrace();
             }
 
             @Override
-            public void onCompleted() {
-              // se ho un errore di connessione e la somma di tutti i messaggi è uguale
-              if (checkMiss(i[0], list))
-              // se è a true, significa che è stato rimosso anche il coordinatore ed è da
-              // inviare nuovamente la media
-              {
-                System.err.println(" ---------------- Dentro checkMiss");
-                startElection(Integer.parseInt(id)); // quindi si elegge un nuovo coordinatore
-                SendStat(); // si manda la media
-              }
-            }
-          };
+            public void onCompleted() { }
+        };
 
-          for (House h : house_list.values())
-            new Thread(new HouseBroadcast(h.port, stat_message, so_stat)).start();
+        for (House h : house_list.values())
+            new Thread(new HouseBroadcast(h.port, leave_message, so_leave)).start();
+    }
 
-        m_to_remove.add(m); //dopo averla usata, si rimuove
+    //---------------------------------------------------Quando si saluta una casa (SERVER)
+    public synchronized void goodbye(int id_h, boolean coordinator){
+        if (house_list.containsKey(id_h))
+            house_list.remove(id_h);
+
+        if (coordinator)
+            startElection(); //chiamo l'elezione con il mio nome
+    }
+
+
+    // ---------------------------------------------------Quando invio una misurazione (CLIENT)
+    public synchronized void send_HouseStat() {
+        if (house_values.size() == 0) return;
+
+        //questa lista contiene tutte le misure, mi preparo il contenitore per eliminare le più vecchie
+        ArrayList<Measurement> m_to_remove = new ArrayList<Measurement>();
+
+        //house_values contiene tutte le misurazioni non ancora inviate
+        //viene riempito il buffer di valori quando il coordinatore non è più accessibile
+        //quando ritorna accessibile, vengono inviati tutti i valori raccolti
+        for (Measurement m : house_values) {
+            Statistic.Builder stat = Statistic.newBuilder();
+
+            stat.setType("STAT_HOUSE");
+            stat.setValue(m.getValue());
+            stat.setTimestamp(m.getTimestamp());
+            stat.setMeasurementId(Integer.parseInt(m.getId()));
+            stat.setHouseId(Integer.parseInt(id));
+
+            Statistic stat_message = stat.build();
+
+            final int[] i = new int[1];
+
+            ArrayList<Integer> list = new ArrayList<Integer>(house_list.keySet());
+            StreamObserver<Statistic> so_stat =
+              new StreamObserver<Statistic>() {
+                @Override
+                public void onNext(Statistic statistic_reply) {
+                  if (list.contains(statistic_reply.getHouseId())) {
+                    synchronized (HouseNode.this) {
+                      i[0]++;
+                      list.remove(list.indexOf(statistic_reply.getHouseId()));
+                    }
+                  }
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                  StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
+
+                  System.out.println("----------");
+                  System.err.println("\nERROR - SEND_STAT-CLIENT: " + throwable.getMessage());
+                  // if (throwable.getMessage().matches("UNAVAILABLE"))
+                  if (statusRuntimeException.getStatus().equals(Status.UNAVAILABLE))
+                    synchronized (HouseNode.this) { i[0]++; }
+                }
+
+                @Override
+                //todo: controllare checkmiss
+                public void onCompleted() {
+                  // se ho un errore di connessione e la somma di tutti i messaggi è uguale
+                  if (checkMiss(i[0], list, m_to_remove))
+                  // se è a true, significa che è stato rimosso anche il coordinatore ed è da
+                  // inviare nuovamente la media
+                  {
+                    System.err.println(" ---------------- Dentro checkMiss");
+                    startElection(); // quindi si elegge un nuovo coordinatore
+                    send_HouseStat(); // si manda la media
+                  }
+                }
+              };
+
+            for (House h : house_list.values())
+               new Thread(new HouseBroadcast(h.port, stat_message, so_stat)).start();
+
+            if (!m_to_remove.contains(m))
+                m_to_remove.add(m); //dopo averla usata, la metto nella struttura dati che raccoglie quelli usati
+                                //la rimozione avviene in checkMiss,
         }
 
-        for (int j=0; j<m_to_remove.size(); j++){
-            house_values.remove(m_to_remove.get(j));
-        }
     }
 
 
@@ -297,10 +385,14 @@ public class HouseNode {
     * Considerando che l'invio di statistiche è l'azione più frequente di tutte, penso che sia sufficente fare solo in questa chiamata la pulizia di nodi deceduti in modo improvviso
     * */
 
-    public synchronized boolean checkMiss(int all_resp, ArrayList<Integer> list){
+    public synchronized boolean checkMiss(int all_resp, ArrayList<Integer> list, ArrayList<Measurement> m_to_remove){
         boolean return_bool = false;
 
-        if (list.size() > 0)
+        if(all_resp == house_list.size() && list.size()==0)
+            //alla fine dell'invio, rimuovo tutti i valori inviati dalla lista
+            for (int j=0; j<m_to_remove.size(); j++){
+                house_values.remove(m_to_remove.get(j));
+            }
 
         if (all_resp == house_list.size() && list.size() > 0)
             for (Integer i:list)    //per ogni indice rimasto controllo se è raggiungibile, se no, si elimina dalla lista
@@ -332,7 +424,7 @@ public class HouseNode {
 
 
     //---------------------------------------------------Quando si riceve una misurazione dagli altri (SERVER)
-    public synchronized Integer MeanStat_SendStat(int house_id, int measure_id, Double measure) {
+    public synchronized Integer res_Mean (int house_id, int measure_id, Double measure) {
 
         //se l'ultima misurazione mandata al serverRest è < dell'attuale, significa che quella attuale è aggiornata
         if (house_list.containsKey(house_id))
@@ -348,30 +440,30 @@ public class HouseNode {
         if (buffer.size() >= house_list.size()) {
 
             Double mean = 0d;
-          for (Double d : buffer.values())
-            mean += d;
+            for (Double d : buffer.values())
+                mean += d;
 
             mean /= buffer.size();
             buffer.clear();
 
             res_values.add(new Measurement(((last_measurement_resident_to_rest + 1)+ ""), null, mean, System.currentTimeMillis()));
 
-            //infine mando al rest i dati della media
+            //infine mando al rest i dati della media e dal qui anche ai nodi
             send_res_values();
             return last_measurement_resident_to_rest;
         }
         return null; //non ho abbastanza valori per fare la media
     }
 
-    public void diffuseStat(){
+    public void send_Res_Stat(){
         Measurement m = res_values.get(res_values.size()-1);
         Statistic.Builder diffuse_stat = Statistic.newBuilder();
-        diffuse_stat.setType("STAT");
+        diffuse_stat.setType("STAT_RES");
         diffuse_stat.setValue(m.getValue());
         diffuse_stat.setTimestamp(m.getTimestamp());
         diffuse_stat.setMeasurementId(Integer.parseInt(m.getId()));
         diffuse_stat.setHouseId(Integer.parseInt(id));
-        diffuse_stat.setReply(true);
+
 
         Statistic diffuse_stat_message = diffuse_stat.build();
 
@@ -394,52 +486,15 @@ public class HouseNode {
 
     }
 
-    //---------------------------------------------------Quando viene segnalata l'ustica (CLIENT)
-    public void Leave(){
-
-        toRest.rm_from_server(house); //comunico al server rest che la casa abbandona la rete
-
-        Leave.Builder leave = Leave.newBuilder();
-        leave.setType("LEAVE");
-        leave.setId(Integer.parseInt(id));
-        leave.setCoordinator(coordinator);
-
-        Leave leave_message = leave.build();
-
-        StreamObserver<Leave> so_leave = new StreamObserver<Leave>() {
-            @Override
-            public void onNext(Leave leave) { }
-
-            @Override
-            public void onError(Throwable throwable) {
-                System.out.println("ERROR - LEAVE-CLIENT"+throwable.getMessage() );
-                throwable.printStackTrace();
-            }
-
-            @Override
-            public void onCompleted() { }
-        };
-
-        for (House h : house_list.values())
-            new Thread(new HouseBroadcast(h.port, leave_message, so_leave)).start();
-    }
-
-    //---------------------------------------------------Quando si saluta una casa (SERVER)
-    public synchronized void GoodBye(int id_h, boolean coordinator){
-        if (house_list.containsKey(id_h))
-            house_list.remove(id_h);
-
-        if (coordinator)
-            startElection(Integer.parseInt(id)); //chiamo l'elezione con il mio nome
-    }
 
     //---------------------------------------------------Quando si indice ad una elezione (CLIENT)
-    public void startElection(int id_h){
+    public void startElection(){
 
         System.err.println("START ELECTION");
         //tutti i nodi che fanno un'elezione inizializzano i valori del coordinatore
         coordinator_id = -1;
         coordinator = false;
+        inElection = true;
 
         ArrayList<House> index = new ArrayList<House>();
         for(House i: house_list.values())
@@ -457,14 +512,13 @@ public class HouseNode {
             Election.Builder election = Election.newBuilder();
             election.setType("ELECTION");
             election.setHouseId(Integer.parseInt(id));
-            election.setReply(false);
             Election election_message = election.build();
 
             final int[] i = {0};
             StreamObserver<Election> so_election = new StreamObserver<Election>() {
                 @Override
                 public void onNext(Election election_reply) {
-//
+                    synchronized (HouseNode.this){ i[0]++; }
                 }
 
                 @Override
@@ -483,17 +537,13 @@ public class HouseNode {
                 public void onCompleted() {  }
             };
 
-      for (House h : index)
-        new Thread(new HouseBroadcast(h.port, election_message, so_election)).start();
-
+            for (House h : index)
+                new Thread(new HouseBroadcast(h.port, election_message, so_election)).start();
         }
     }
 
     //---------------------------------------------------Quando si risponde ad una elezione (SERVER)
-    public void Election(int id_h){
-            startElection(Integer.parseInt(id));
-
-    }
+  //rispondo con startElection
 
    //---------------------------------------------------Quando TERMINA L'ELEZIONE (CLIENT)
     public synchronized void imThePresident(){
@@ -529,11 +579,88 @@ public class HouseNode {
     }
 
     //---------------------------------------------------Quando chiedo l'uso del boost (CLIENT)
-    public synchronized boolean Boost(){return false;}
+    public synchronized boolean boost(){
+        requestForBoost = true;
+        timestampRequest = System.currentTimeMillis();
+        Boost.Builder boost = Boost.newBuilder();
 
-    //---------------------------------------------------Quando rispondo per l'uso del boost (CLIENT)
-    public synchronized boolean ReBoost(){return false;}
+        boost.setTimestamp(timestampRequest);
+        boost.setHouseId(Integer.parseInt(id));
+        Boost boost_message = boost.build();
+
+        StreamObserver <Boost> so_boost = new StreamObserver<Boost>() {
+            @Override
+            public void onNext(Boost boost_reply) {
+               checkPermission(boost_reply.getHouseId(), boost_reply.getReply());
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                checkPermission(boostRequestResponse.size()*-1, "LOST");
+            }
+
+            @Override
+            public void onCompleted() {}
+        };
+
+        if(house_list.size()>0)
+            for (House h : house_list.values())
+                new Thread(new HouseBroadcast(h.port, boost_message, so_boost)).start();
 
 
+        return false;}
 
+    public void notifyHouse(){
+
+        Boost.Builder boost = Boost.newBuilder();
+        boost.setHouseId(Integer.parseInt(id));
+        boost.setReply("OK");
+        boost.setTimestamp(0);
+        Boost boost_message = boost.build();
+
+        StreamObserver<Boost> so_boost = new StreamObserver<Boost>() {
+            @Override
+            public void onNext(Boost boost) { }
+
+            @Override
+            public void onError(Throwable throwable) { }
+
+            @Override
+            public void onCompleted() { }
+        };
+
+
+        if (house_to_notify.size() != 0)
+            for (Integer h : house_to_notify)
+                new Thread(new HouseBroadcast(house_list.get(h).port, boost_message, so_boost)).start();
+    }
+
+    public void checkPermission(int id, String response){
+        boostRequestResponse.put(id, response);
+
+        //controllo che ci siano esattamente gli id degli elementi che ho nell houselist
+        for(Integer id_check : boostRequestResponse.keySet())
+             if(!house_list.containsKey(id_check))
+                boostRequestResponse.remove(id_check);
+
+        //conto quanti WAIT ho, una volta che ho ricevuto almeno house_list messaggi
+        if(boostRequestResponse.size() >= house_list.size()){
+            int i = 0;
+            for(String s:boostRequestResponse.values())
+                i+= s.equals("WAIT") ? 1 : 0;
+
+            if (i < 2) { // se ho 0 o 1 NO, posso usare la risorsa
+                new Thread(new BoostThread(this, simulator)).start();
+                boostRequestResponse.clear();
+            }
+        }
+    }
+  // ---------------------------------------------------Quando rispondo per l'uso del boost (CLIENT)
+  public synchronized boolean reBoost(int id, long timestamp) {
+        if (getBoost() || (requestForBoost && timestampRequest < timestamp)) {
+            house_to_notify.add(id);
+            return false;
+        }
+        else return true;
+    }
 }

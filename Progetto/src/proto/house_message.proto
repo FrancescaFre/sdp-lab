@@ -21,7 +21,6 @@ message Statistic
     int64 timestamp = 3;
     int32 measurement_id= 4;
     int32 house_id = 5;
-    bool reply = 6;
 }
 //-----------------------------------------------------------------------------------
 /*
@@ -34,7 +33,6 @@ message Election
 {
     string type = 1;
     int32 house_id = 2;
-    bool reply = 3;
 }
 //-----------------------------------------------------------------------------------
 /*
@@ -45,13 +43,11 @@ reply
 */
 message Join
 {
-    string type = 1;
-    int32 house_id = 2;
-    int32 port = 3;
-    string ip = 4;
-    int32 coordinator = 5;
-    bool reply = 6;
-}
+    int32 house_id = 1;
+    int32 port = 2;
+    string ip = 3;
+    int32 coordinator = 4;
+ }
 //-----------------------------------------------------------------------------------
 /*
 type = LEAVE
@@ -60,10 +56,8 @@ coordinator = è a true solo se chi sta venendo rimosso è un coordinatore
 */
 message Leave
 {
-    string type = 1;
-    int32 id = 2;
-    bool coordinator = 3;
-    bool reply = 4;
+    int32 id = 1;
+    bool coordinator = 2;
 }
 //-----------------------------------------------------------------------------------
 /*
@@ -77,10 +71,9 @@ reply = i valori possono essere
 */
 message Boost
 {
-    string type = 1;
-    int32 house_id = 2;
-    int64 timestamp = 3;
-    string reply = 4;
+    int32 house_id = 1;
+    int64 timestamp = 2;
+    string reply = 3;
 }
 
 
@@ -91,10 +84,16 @@ message Boost
 service HouseService{
     //sono tutte chiamate unarie
     rpc presentation (Join) returns (Join){}
-    rpc coordinatorElection (Election) returns (Election){}
-    rpc sendStat (Statistic) returns (Statistic){}
     rpc leaveNetwork (Leave) returns (Leave){}
+
+    rpc sendStat (Statistic) returns (Statistic){}
+    rpc spreadStat (Statistic) returns (Statistic){}
+
     rpc boostRequest (Boost) returns (Boost){}
+    rpc boostRelease (Boost) returns (Boost){}
+
+    rpc coordinatorElection (Election) returns (Election){}
     rpc imThePresident (Election) returns (Election){}
+
     rpc checkConnection (Join) returns (Join){}
 }

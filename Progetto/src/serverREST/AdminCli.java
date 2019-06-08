@@ -4,7 +4,6 @@ import message_measurement.AdminChart;
 import message_measurement.House;
 import message_measurement.SensorMeasurement;
 import org.glassfish.jersey.client.ClientConfig;
-import simulation_src_2019.Measurement;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -12,7 +11,9 @@ import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
@@ -23,6 +24,8 @@ import javax.ws.rs.core.Response;
 
 public class AdminCli {
     static Scanner input;
+    static ClientConfig config = new ClientConfig();
+    static Client client = ClientBuilder.newClient(config);
 
     public static void main (String[] argv) {
 
@@ -31,8 +34,6 @@ public class AdminCli {
         input = new Scanner(System.in);
 
 
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
         WebTarget target;
 
         boolean b = false;
@@ -54,6 +55,10 @@ public class AdminCli {
         while (true) {
             b = false;
             do {
+                 if (input == null) {
+                    close(client);
+                    return;}
+
                 System.out.print(
                         "Premi il numero corrispondente per scegliere un'opzione: \n" +
                                 "1 ➝ Visualizza la lista delle case\n" +
@@ -65,12 +70,17 @@ public class AdminCli {
                                 "Inserisci: "
                 );
 
-                string_container = input.nextLine();
-                if (string_container.matches("[1-6]+")) {
-                    select = Integer.parseInt(string_container);
-                    b = true;
-                }
-                else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero tra quelli elencati");
+                try{
+                    string_container = input.nextLine();
+
+
+                    if (string_container.matches("[1-6]+")) {
+                        select = Integer.parseInt(string_container);
+                        b = true;
+                    }
+                    else System.err.println(" ⚠ Input non valido ⚠\nInserire un numero tra quelli elencati");
+
+                }catch (IllegalStateException is) { close(client); select = 6; b = true; }
 
             } while (!b);
 
@@ -108,10 +118,12 @@ public class AdminCli {
         }
     }
 
+    //-------------------------------- Lista case
     private static void house_list(WebTarget target)
     {
-        Response response = target.path("server").path("admin/house_list").request().accept(MediaType.APPLICATION_JSON).get();
-
+        //Response response = target.path("server").path("admin/house_list").request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = catchConnectionError(target.path("server").path("admin/house_list"));
+        if(response == null) return;
 
         if (response.getStatus() != 200 ){
             System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
@@ -130,13 +142,16 @@ public class AdminCli {
         System.out.println("⚡----------------------------------⚡\n");
     }
 
-//-------------------------------- Statistica singola casa
+    //-------------------------------- Statistica singola casa
     private static void statistics_house(WebTarget target)
     {
         //[0] = id, [1] = n
         String[] input = getInputHouse();
 
-        Response response = target.path("server").path("admin/stat").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
+        //Response response = target.path("server").path("admin/stat").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = catchConnectionError(target.path("server").path("admin/stat").path(input[1]).path(input[0]));
+
+        if(response == null) return;
 
         if (response.getStatus() != 200)
         {
@@ -162,7 +177,10 @@ public class AdminCli {
     private static void statistics_residence(WebTarget target)
     {
         String n = getInputResidence();
-        Response response = target.path("server").path("admin/stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
+        //Response response = target.path("server").path("admin/stat").path(n).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = catchConnectionError(target.path("server").path("admin/stat").path(n));
+        if(response == null) return;
+
         SensorMeasurement[] values = response.readEntity(SensorMeasurement[].class);
 
         if (response.getStatus() != 200)
@@ -189,7 +207,10 @@ public class AdminCli {
         //[0] = id, [1] = n
         String[] input = getInputHouse();
 
-        Response response = target.path("server").path("admin/mean_stdev").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
+        //Response response = target.path("server").path("admin/mean_stdev").path(input[1]).path(input[0]).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = catchConnectionError(target.path("server").path("admin/mean_stdev").path(input[1]).path(input[0]));
+        if(response == null) return;
+
         if (response.getStatus() != 200)
         {
             System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
@@ -207,13 +228,15 @@ public class AdminCli {
                 "Deviazione Standard: "+m_stdD[1]+"\n");
     }
 
-
     //-------------------------------- Media e DevStandard della residenza
     private static void mean_stddev_residence(WebTarget target)
     {
         String n = getInputResidence();
 
-        Response response = target.path("server").path("admin/mean_stdev").path(n).request().accept(MediaType.APPLICATION_JSON).get();
+       // Response response = target.path("server").path("admin/mean_stdev").path(n).request().accept(MediaType.APPLICATION_JSON).get();
+        Response response = catchConnectionError(target.path("server").path("admin/mean_stdev").path(n));
+        if(response == null) return;
+
         Float[] m_stdD = response.readEntity(Float[].class);
 
         if (m_stdD == null || (m_stdD[0] == 0 && m_stdD[1] == 0)){
@@ -225,7 +248,6 @@ public class AdminCli {
                 "--------------Media: "+m_stdD[0]+"\n"+
                 "Deviazione Standard: "+m_stdD[1]+"\n");
     }
-
 
     //--------------------------------------------------------------------------------- UTILIES
     private static String getInputResidence(){
@@ -290,8 +312,34 @@ public class AdminCli {
     {
         System.out.println("Chiusura del client amministratore");
         client.close();
-        input.close();
+        //input.close();
     }
+
+    static int i = 0;
+    private static Response catchConnectionError(WebTarget target){
+        Response response = null;
+        do{
+            try{
+                response = target.request().accept(MediaType.APPLICATION_JSON).get();
+                i=0;
+                return response;
+            }catch (ProcessingException pe){
+                i++;
+                System.err.println("Errore di connessione, tentativo "+i+" di riconnessione");
+                try{
+                    TimeUnit.SECONDS.sleep(3);
+                }catch(InterruptedException ie) {ie.getMessage();}
+
+            }
+        }while(i<3); //dopo 3 tentativi, rilascia response null
+        System.err.println("Impossibile contattare il server amministratore, annullamento richiesta in corso ... ");
+
+        input.close();
+        input = null;
+
+        return response;
+    }
+
 
     private static String qtPrint(long time){
         Date date = new Date(time);

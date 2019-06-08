@@ -14,7 +14,6 @@ public class HouseServer implements Runnable {
 
     }
 
-
     @Override
     public void run() {
        try{

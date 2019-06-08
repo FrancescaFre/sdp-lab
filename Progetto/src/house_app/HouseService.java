@@ -14,42 +14,25 @@ import io.grpc.stub.StreamObserver;
 
 public class HouseService extends HouseServiceImplBase{
 
-    HouseNode node;
+    final HouseNode node;
 
     public HouseService(HouseNode hn){
         node = hn;
     }
 
-    //---------------------------------------------------Statistiche
-    @Override
-    public void sendStat(Statistic request, StreamObserver<Statistic> response){
 
-        //se è un reply vuol dire che devo diffondere il messaggio del coordinatore e l'id è nuovo, aggiorno
-        if (request.getReply()){
-            node.print_value(request.getValue(), request.getTimestamp(), true); //quindi appena arriva una misurazione, questa viene stampata - MEDIA DEL CONDOMINIO
-            response.onNext(Statistic.newBuilder().build());
-        }
-        else {
-        Integer progressive_residence_mean_id = node.MeanStat_SendStat(request.getHouseId(), request.getMeasurementId(), request.getValue());
-            response.onNext(Statistic.newBuilder().setHouseId(Integer.parseInt(node.id)).build());
-        }
-
-     response.onCompleted();
-    }
 
     //---------------------------------------------------JOIN
     @Override
     public void presentation (Join request, StreamObserver<Join> response){
 
-        int coordinator = node.Welcome(request.getHouseId(), request.getPort());
+        int coordinator = node.welcome(request.getHouseId(), request.getPort());
 
         Join.Builder joinReply = Join.newBuilder();
 
-        joinReply.setType("JOIN");
         joinReply.setHouseId(Integer.parseInt(node.id));
         joinReply.setPort(node.port);
         joinReply.setIp("localhost");
-        joinReply.setReply(true);
         joinReply.setCoordinator(coordinator);
 
         response.onNext(joinReply.build());
@@ -59,33 +42,45 @@ public class HouseService extends HouseServiceImplBase{
     //---------------------------------------------------RIMOZIONE
     @Override
     public void leaveNetwork (Leave request, StreamObserver<Leave> response){
-        if (!request.getType().equals("LEAVE"))
-            response.onCompleted();
 
-        node.GoodBye(request.getId(), request.getCoordinator());
+        node.goodbye(request.getId(), request.getCoordinator());
 
         Leave.Builder leaveReply = Leave.newBuilder();
-        leaveReply.setType("LEAVE");
+
         leaveReply.setId(Integer.parseInt(node.id));
-        leaveReply.setReply(true);
         leaveReply.setCoordinator(false);
 
         response.onNext(leaveReply.build());
         response.onCompleted();
     }
+    //---------------------------------------------------Statistiche
+    //per le statistiche inviate da una casa
+    @Override
+    public void sendStat(Statistic request, StreamObserver<Statistic> response){
+         Integer progressive_residence_mean_id = node.res_Mean(request.getHouseId(), request.getMeasurementId(), request.getValue());
+         response.onNext(Statistic.newBuilder().setHouseId(Integer.parseInt(node.id)).build());
 
+        response.onCompleted();
+    }
+
+    //per le statistiche del coordinatore
+    @Override
+    public void spreadStat(Statistic request, StreamObserver<Statistic> response){
+        node.print_value(request.getValue(), request.getTimestamp(), true); //quindi appena arriva una misurazione, questa viene stampata - MEDIA DEL CONDOMINIO
+        response.onNext(Statistic.newBuilder().build());
+
+        response.onCompleted();
+    }
     //---------------------------------------------------ELEZIONE
 
     @Override
     public void coordinatorElection(Election request, StreamObserver<Election> response) {
 
-        node.Election(request.getHouseId());
+        //node.startElection(request.getHouseId());
+        if(!node.getInElection()) //se il nodo non è già stato interpellato per l'elezione, chiama l'elezione
+            node.startElection();
 
         Election.Builder electionReply = Election.newBuilder();
-
-        electionReply.setType("ELECTION");
-        electionReply.setReply(true);
-        System.err.println("sONO DENTRO SERVER NODE ID: "+node.id);
         electionReply.setHouseId(Integer.parseInt(node.id));
 
         response.onNext(electionReply.build());
@@ -94,9 +89,35 @@ public class HouseService extends HouseServiceImplBase{
 
     //---------------------------------------------------BOOST
     @Override
-    public void boostRequest (Boost request, StreamObserver<Boost> response){
-        //se non sto usando la risorsa rispondo con ok, altrimenti con wait e lo faccio mettere in coda
+    public void boostRequest(Boost request, StreamObserver<Boost> response) {
+
+        Boost.Builder boost = Boost.newBuilder();
+        //rispondo ok se non sto usando la risorsa o se sono me stesso che la chiedo a me
+        if(node.reBoost(request.getHouseId(), request.getTimestamp()) || Integer.parseInt(node.id) == request.getHouseId())
+        {
+            boost.setHouseId(Integer.parseInt(node.id));
+            boost.setReply("OK");
+            boost.setTimestamp(System.currentTimeMillis());
+        }
+        else
+        {
+            boost.setHouseId(Integer.parseInt(node.id));
+            boost.setReply("WAIT");
+            boost.setTimestamp(System.currentTimeMillis());
+        }
+
+        response.onNext(boost.build());
+        response.onCompleted();
     }
+
+    @Override
+    public void boostRelease(Boost request, StreamObserver<Boost> response) {
+        node.checkPermission(request.getHouseId(), request.getReply());
+        //qui aggiorno il dizionario aggiungendo l'ok di chi fa il release della risorsa
+        response.onNext(Boost.newBuilder().build());
+        response.onCompleted();
+    }
+
 
     //---------------------------------------------------President
     @Override
@@ -104,16 +125,19 @@ public class HouseService extends HouseServiceImplBase{
     if (node.coordinator_id != request.getHouseId()) {
           node.coordinator_id = request.getHouseId(); // memorizzo il nuovo coordinatore
           node.coordinator = false;
+          node.inElection = false;
         }
         responseObserver.onNext(Election.newBuilder().build());
         responseObserver.onCompleted();
     }
 
-    //---------------------------------------------------President
+    //---------------------------------------------------CHECK
     @Override
     public void checkConnection (Join request, StreamObserver<Join> response){
 
         response.onNext(Join.newBuilder().build());
         response.onCompleted();
     }
+
+
 }

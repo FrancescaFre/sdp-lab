@@ -38,8 +38,6 @@ public class HouseBroadcast implements Runnable {
             choose = 1;
         else
             choose = 2 ;
-
-        System.err.println("-----------"+choose);
     }
 
     public HouseBroadcast(int port, Statistic message, StreamObserver so)
@@ -47,7 +45,7 @@ public class HouseBroadcast implements Runnable {
         streamObserver = so;
         channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
         statistic = message;
-        if (!message.getReply())
+        if (message.getType().equals("STAT_HOUSE"))
             choose = 3;
         else
             choose = 4;  //è il messaggio che il coordinatore manda a tutti con le stat giuste
@@ -66,9 +64,9 @@ public class HouseBroadcast implements Runnable {
         streamObserver = so;
         channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
         boost = message;
-        if (message.getReply().equals(""))
+        if (message.getTimestamp()!=0)
             choose = 6;
-        else if (message.getReply().equals("FREE"))
+        else
             choose = 7;
     }
 
@@ -91,7 +89,7 @@ public class HouseBroadcast implements Runnable {
                 HouseServiceGrpc.newStub(channel).sendStat(statistic, streamObserver);
                 break;
             case 4: //diffuzione statistiche del coordinatore
-                HouseServiceGrpc.newStub(channel).sendStat(statistic, streamObserver);
+                HouseServiceGrpc.newStub(channel).spreadStat(statistic, streamObserver);
                 break;
 
             case 5: //leave
@@ -102,7 +100,7 @@ public class HouseBroadcast implements Runnable {
                 HouseServiceGrpc.newStub(channel).boostRequest(boost, streamObserver);
                 break;
             case 7: //Notificare a chi ha bisogno del boost
-                HouseServiceGrpc.newStub(channel).boostRequest(boost, streamObserver);
+                HouseServiceGrpc.newStub(channel).boostRelease(boost, streamObserver);
                 break;
         }
     }

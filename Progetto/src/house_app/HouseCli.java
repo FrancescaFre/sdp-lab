@@ -3,14 +3,15 @@ package house_app;
 import message_measurement.SensorMeasurement;
 import org.glassfish.jersey.client.ClientConfig;
 import message_measurement.House;
-import simulation_src_2019.Measurement;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
@@ -50,7 +51,10 @@ public class HouseCli{
 
     //AGGIUNTA AL SERVER
     public ArrayList<House> add_to_server(House house) {
-        Response response = target.path("server").path("/house/add").request(MediaType.APPLICATION_JSON).post(Entity.entity(house, MediaType.APPLICATION_JSON));
+        //Response response = target.path("server").path("/house/add").request(MediaType.APPLICATION_JSON).post(Entity.entity(house, MediaType.APPLICATION_JSON));
+        Response response = catchConnectionError(target.path("server").path("/house/add"), house, null, null, null);
+        if(response == null) return null;
+
         if (response.getStatus() != 200) {
             System.err.println(response.readEntity(String.class) + " - " + response.getStatus());
             System.err.println("Riavviare il programma usando un identificativo differente");
@@ -64,8 +68,11 @@ public class HouseCli{
     }
 
     //RIMOZIONE DAL SERVER
-    public boolean rm_from_server(House house) {
-        Response response = target.path("server").path("/house/rm").request().post(Entity.entity(house, MediaType.APPLICATION_JSON));
+    public Boolean rm_from_server(House house) {
+        //Response response = target.path("server").path("/house/rm").request().post(Entity.entity(house, MediaType.APPLICATION_JSON));
+        Response response = catchConnectionError(target.path("server").path("/house/rm"), house, null, null, null);
+        if(response == null) return null;
+
         if (response.getStatus() != 200){
             System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
             return false;
@@ -77,20 +84,29 @@ public class HouseCli{
 
     //INVIO VALORI al server
     /**send_values vuole la casa che invia i valori, se è coordinatore o meno, i suoi valori della residenza e i propri**/
-    public void send_values(House house, boolean coordinator, SensorMeasurement sv_r, SensorMeasurement sv_h){
+    public Boolean send_values(House house, boolean coordinator, SensorMeasurement sv_r, SensorMeasurement sv_h){
         Response response_residence;
         if (coordinator && sv_r!=null) {
-            response_residence = target.path("server").path("/house/values").request().post(Entity.entity(sv_r, MediaType.APPLICATION_JSON));
+            //response_residence = target.path("server").path("/house/values").request().post(Entity.entity(sv_r, MediaType.APPLICATION_JSON));
+            response_residence = catchConnectionError(target.path("server").path("/house/values"), house, coordinator, sv_r, null);
+            if(response_residence == null) return null;
+
             if (response_residence.getStatus()!=200)
                 System.err.println(response_residence.readEntity(String.class)+" - " + response_residence.getStatus());
         }
 
         if(sv_h == null)
-            return;
+            return false;
 
-        Response response = target.path("server").path("/house/values").path(house.id+"").request().post(Entity.entity(sv_h, MediaType.APPLICATION_JSON));
-        if (response.getStatus() != 200)
-            System.err.println(response.readEntity(String.class)+" - " + response.getStatus());
+        //Response response = target.path("server").path("/house/values").path(house.id+"").request().post(Entity.entity(sv_h, MediaType.APPLICATION_JSON));
+        Response response = catchConnectionError(target.path("server").path("/house/values").path(house.id+""), house, coordinator, null, sv_h);
+        if(response == null) return null;
+
+        if (response.getStatus() != 200) {
+            System.err.println(response.readEntity(String.class) + " - " + response.getStatus());
+            return false;
+        }
+        return true;
     }
 
     // Chiusura connessione
@@ -108,4 +124,34 @@ public class HouseCli{
 
         return uri;
     }
+
+    //check
+    static int i = 0;
+    private static Response catchConnectionError(WebTarget target, House house, Boolean coordinator, SensorMeasurement sv_r, SensorMeasurement sv_h){
+        Response response = null;
+        do{
+            try{
+
+                if (coordinator== null)
+                    response = target.request(MediaType.APPLICATION_JSON).post(Entity.entity(house, MediaType.APPLICATION_JSON));
+                else if(sv_r != null)
+                    response = target.request().post(Entity.entity(sv_r, MediaType.APPLICATION_JSON));
+                else
+                    response = target.request().post(Entity.entity(sv_h, MediaType.APPLICATION_JSON));
+                i=0;
+                return response;
+
+            }catch (ProcessingException pe){
+                i++;
+                System.err.println("Errore di connessione al server REST, tentativo "+i+" di riconnessione");
+                try{
+                    TimeUnit.SECONDS.sleep(3);
+                }catch(InterruptedException ie) {ie.getMessage();}
+            }
+        }while(i<3 && sv_r!=null); //dopo 3 tentativi, rilascia response null
+        System.err.println("Impossibile contattare il server REST, annullamento richiesta in corso ... ");
+
+        return response;
+    }
+
 }

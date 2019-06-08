@@ -38,7 +38,6 @@ public class SmartMeterSimulator extends Simulator {
             sensorSleep(waitingTime);
 
             i+=0.2;
-
         }
 
     }

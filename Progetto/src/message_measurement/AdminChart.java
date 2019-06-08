@@ -21,13 +21,12 @@ public class AdminChart{
         ArrayList<Long> x = new ArrayList<Long>();
         ArrayList<Double> y = new ArrayList<Double>();
 
-
         ArrayList<Date> xData = new ArrayList<Date>();
         ArrayList<Double> yData = new ArrayList<Double>();
 
         DateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
         Date date = null;
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <measurements.size(); i++) {
 
             date = new Date(measurements.get(i).timestamp);
             xData.add(date);
@@ -36,7 +35,7 @@ public class AdminChart{
 
         for (int i = 0; i<measurements.size(); i++)
         {
-           y.add(measurements.get(i).value);
+            y.add(measurements.get(i).value);
             x.add(measurements.get(i).timestamp);
         }
 
