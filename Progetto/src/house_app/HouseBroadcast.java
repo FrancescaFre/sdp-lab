@@ -34,7 +34,7 @@ public class HouseBroadcast implements Runnable {
     public HouseBroadcast(int port, Election message, StreamObserver so)
     {
         streamObserver = so;
-        //channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
+        channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
         election = message;
         if (message.getType().equals("ELECTION"))
             choose = 1;
@@ -75,6 +75,7 @@ public class HouseBroadcast implements Runnable {
 
     @Override
     public void run() {
+
         switch (choose){
             case 0: //ingresso
                 HouseServiceGrpc.newStub(channel).presentation(join, streamObserver);

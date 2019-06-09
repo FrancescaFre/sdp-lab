@@ -219,7 +219,7 @@ public class HouseNode {
             @Override
             public void onError(Throwable throwable) {
                 System.err.println("ERROR - JOIN-CLIENT: "+throwable.getMessage() );
-                //throwable.printStackTrace();
+//                throwable.printStackTrace();
             }
 
             @Override
@@ -308,6 +308,7 @@ public class HouseNode {
 
     // ---------------------------------------------------Quando invio una misurazione (CLIENT)
     public synchronized void send_HouseStat() {
+
         if (house_values.size() == 0) return;
 
         //questa lista contiene tutte le misure, mi preparo il contenitore per eliminare le più vecchie
@@ -340,30 +341,42 @@ public class HouseNode {
                       list.remove(list.indexOf(statistic_reply.getHouseId()));
                     }
                   }
+
+                    // se ho un errore di connessione e la somma di tutti i messaggi è uguale
+                    if (checkMiss(i[0], list, m_to_remove))
+                    // se è a true, significa che è stato rimosso anche il coordinatore ed è da
+                    // inviare nuovamente la media
+                    {
+                        System.err.println(" ---------------- Dentro checkMiss");
+                        startElection(); // quindi si elegge un nuovo coordinatore
+                        send_HouseStat(); // si manda la media
+                    }
                 }
 
                 @Override
                 public void onError(Throwable throwable) {
+
                   StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
 
-                  System.err.println("\nERROR - SEND_STAT-CLIENT: " + throwable.getMessage());
                   // if (throwable.getMessage().matches("UNAVAILABLE"))
-                  if (statusRuntimeException.getStatus().equals(Status.UNAVAILABLE))
-                    synchronized (HouseNode.this) { i[0]++; }
+                  if (statusRuntimeException.getStatus().getCode().equals(Status.Code.UNAVAILABLE))
+                      synchronized (HouseNode.this) { i[0]++; }
+
+
+                    // se ho un errore di connessione e la somma di tutti i messaggi è uguale
+                    if (checkMiss(i[0], list, m_to_remove))
+                    // se è a true, significa che è stato rimosso anche il coordinatore ed è da
+                    // inviare nuovamente la media
+                    {
+                        System.err.println(" ---------------- Dentro checkMiss");
+                        startElection(); // quindi si elegge un nuovo coordinatore
+                        send_HouseStat(); // si manda la media
+                    }
                 }
 
                 @Override
-                //todo: controllare checkmiss
                 public void onCompleted() {
-                  // se ho un errore di connessione e la somma di tutti i messaggi è uguale
-                  if (checkMiss(i[0], list, m_to_remove))
-                  // se è a true, significa che è stato rimosso anche il coordinatore ed è da
-                  // inviare nuovamente la media
-                  {
-                    System.err.println(" ---------------- Dentro checkMiss");
-                    startElection(); // quindi si elegge un nuovo coordinatore
-                    send_HouseStat(); // si manda la media
-                  }
+
                 }
               };
 
@@ -402,6 +415,8 @@ public class HouseNode {
         if (all_resp == house_list.size() && list.size() > 0)
             for (Integer i:list)    //per ogni indice rimasto controllo se è raggiungibile, se no, si elimina dalla lista
             {
+
+                System.err.println("CONTROLLO LA CASA CON ID "+i);
                 //Sincrona la prova di connessione
 
                 final ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", house_list.get(i).port).usePlaintext(true).build();
@@ -495,7 +510,7 @@ public class HouseNode {
     //---------------------------------------------------Quando si indice ad una elezione (CLIENT)
     public void startElection(){
 
-        System.err.println("START ELECTION");
+        System.err.println("Inizio elezione coordinatore");
         //tutti i nodi che fanno un'elezione inizializzano i valori del coordinatore
         coordinator_id = -1;
         coordinator = false;
@@ -505,8 +520,6 @@ public class HouseNode {
         for(House i: house_list.values())
             if (i.id > Integer.parseInt(id)) //il nodo memorizza chi è più grande
                 index.add(i);
-
-        System.err.println("dimensione di index "+index.size());
 
         if (index.size() == 0) //non c'è nessuno più grande
         {
@@ -552,7 +565,7 @@ public class HouseNode {
 
    //---------------------------------------------------Quando TERMINA L'ELEZIONE (CLIENT)
     public synchronized void imThePresident(){
-        System.out.println("SONO IL PRESIDENTE");
+        System.out.println("Questo nodo con identificativo "+id+" è stato eletto come coordinatore della rete");
 
         coordinator_id = Integer.parseInt(id);
         coordinator = true;

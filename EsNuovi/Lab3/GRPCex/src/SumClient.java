@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class SumClient {
     public static void main(String[] argv) {
         System.out.println("----------------Simple Sum Sync");
-        SimpleSumSynch ();
+       // SimpleSumSynch ();
 
         System.out.println("----------------Simple Sum ASynch");
         SimpleSumAsynch();
@@ -73,8 +73,8 @@ public class SumClient {
             public void onError(Throwable throwable) {
                 System.err.println("SimpleSum Asincrono Error " +throwable.getMessage());
                // throwable.printStackTrace();
-                if (throwable instanceof StatusRuntimeException)
-                        System.err.println(((StatusRuntimeException) throwable).getStatus());
+               // if (throwable instanceof StatusRuntimeException)
+                       // System.err.println(((StatusRuntimeException) throwable).getStatus());
             }
 
             @Override
@@ -179,7 +179,7 @@ public class SumClient {
 
         }catch (InterruptedException e){
             System.err.println("------ Errore nel awaitTerminator");
-            e.printStackTrace();
+            //e.printStackTrace();
         }
     }
     public static Input NewInput (){
