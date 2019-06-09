@@ -112,7 +112,8 @@ public class HouseService extends HouseServiceImplBase{
 
     @Override
     public void boostRelease(Boost request, StreamObserver<Boost> response) {
-        node.checkPermission(request.getHouseId(), request.getReply());
+        if(node.requestForBoost) //se è ancora attiva la richiesta per l'uso, aggiorno i nuovi dati
+            node.checkPermission(request.getHouseId(), request.getReply());
         //qui aggiorno il dizionario aggiungendo l'ok di chi fa il release della risorsa
         response.onNext(Boost.newBuilder().build());
         response.onCompleted();

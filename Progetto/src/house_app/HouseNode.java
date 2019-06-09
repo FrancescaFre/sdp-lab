@@ -23,7 +23,7 @@ public class HouseNode {
     House house;
     String id;
     int port;
-    public Thread server;
+    public HouseServer server;
 
     ArrayList<Measurement> house_values = new ArrayList<Measurement>();
     ArrayList<Measurement> res_values = new ArrayList<Measurement>();
@@ -73,8 +73,7 @@ public class HouseNode {
             house_list.put(h.get(i).id, h.get(i));
         }
         //start lato server gprc del nodo
-        server = new Thread( new HouseServer(this, port));
-        server.start();
+        new Thread( server = new HouseServer(this, port)).start();
 
         join(); //grpc di presentazione
     }
@@ -124,7 +123,7 @@ public class HouseNode {
         {
             send_HouseStat();
         }else{
-            System.err.println("Chiamata in send_house per mancato coordinator ");
+            System.err.println("Inizio elezione, coordinatore assente");
             startElection();
             send_HouseStat();
         }
@@ -152,12 +151,13 @@ public class HouseNode {
 
     //-------------------- INVIO DEI VALORI al server REST
     public void setBoost(boolean bool){
-        if (bool) //true
+        if (bool){ //true
             isBoost = true;
+            requestForBoost = false; //ho fatto l'accesso al boost, non sono più in richiesta
+        }
         if (!bool){
             isBoost = false;
             notifyHouse();
-            requestForBoost = false;
         }
     }
     public synchronized boolean getBoost(){ return isBoost;}
@@ -176,7 +176,7 @@ public class HouseNode {
             return;
         }
 
-        System.err.println("START JOIN ------");
+        System.out.println("Inizio presentazione nella rete della residenza");
         Join.Builder join = Join.newBuilder();
         join.setHouseId(Integer.parseInt(this.id));
         join.setPort(this.port);
@@ -218,9 +218,8 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                System.out.println("----------");
-                System.err.println("ERROR - JOIN-CLIENT "+throwable.getMessage() );
-                throwable.printStackTrace();
+                System.err.println("ERROR - JOIN-CLIENT: "+throwable.getMessage() );
+                //throwable.printStackTrace();
             }
 
             @Override
@@ -263,7 +262,6 @@ public class HouseNode {
     //---------------------------------------------------Quando viene comunicata l'uscita (CLIENT)
     public void leave(){
 
-        System.err.println("uscita");
         toRest.rm_from_server(house); //comunico al server rest che la casa abbandona la rete
 
         Leave.Builder leave = Leave.newBuilder();
@@ -279,8 +277,8 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                System.out.println("ERROR - LEAVE-CLIENT"+throwable.getMessage() );
-                throwable.printStackTrace();
+                System.err.println("ERROR - LEAVE-CLIENT: "+throwable.getMessage() );
+               // throwable.printStackTrace();
             }
 
             @Override
@@ -288,12 +286,17 @@ public class HouseNode {
         };
 
         for (House h : house_list.values())
+            if(h.id != Integer.parseInt(id))
             new Thread(new HouseBroadcast(h.port, leave_message, so_leave)).start();
-        System.err.println("uscita fine");
+        System.out.println("Uscita dalla rete delle case avvenuta con successo");
     }
 
     //---------------------------------------------------Quando si saluta una casa (SERVER)
     public synchronized void goodbye(int id_h, boolean coordinator){
+        if(requestForBoost && boostRequestResponse.get(id_h).equals("WAIT"))
+            checkPermission(id_h,"OK");
+        //se il nodo che se ne sta andando mi ha risposto WAIT per l'uso della risorsa, lo uso io
+
         if (house_list.containsKey(id_h))
             house_list.remove(id_h);
 
@@ -343,7 +346,6 @@ public class HouseNode {
                 public void onError(Throwable throwable) {
                   StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
 
-                  System.out.println("----------");
                   System.err.println("\nERROR - SEND_STAT-CLIENT: " + throwable.getMessage());
                   // if (throwable.getMessage().matches("UNAVAILABLE"))
                   if (statusRuntimeException.getStatus().equals(Status.UNAVAILABLE))
@@ -527,7 +529,7 @@ public class HouseNode {
                 @Override
                 public void onError(Throwable throwable) {
                     StatusRuntimeException statrun = (StatusRuntimeException) throwable;
-                    System.err.println("ERROR - ELECTION-CLIENT"+statrun.getStatus() );
+                    System.err.println("ERROR - ELECTION-CLIENT: "+statrun.getStatus() );
                 //devo gestire la situazione in cui ho n nodi più grandi di me e nessuno risponde
                     if (statrun.getStatus().equals(Status.UNAVAILABLE))
                       synchronized (HouseNode.this){ i[0]++; }
@@ -642,9 +644,9 @@ public class HouseNode {
         boostRequestResponse.put(id, response);
 
         //controllo che ci siano esattamente gli id degli elementi che ho nell houselist
-        for(Integer id_check : boostRequestResponse.keySet())
-             if(!house_list.containsKey(id_check))
-                boostRequestResponse.remove(id_check);
+//        for(Integer id_check : boostRequestResponse.keySet())
+//             if(!house_list.containsKey(id_check))
+//                boostRequestResponse.remove(id_check);
 
         //conto quanti WAIT ho, una volta che ho ricevuto almeno house_list messaggi
         if(boostRequestResponse.size() >= house_list.size()){
@@ -653,11 +655,48 @@ public class HouseNode {
                 i+= s.equals("WAIT") ? 1 : 0;
 
             if (i < 2) { // se ho 0 o 1 NO, posso usare la risorsa
-                new Thread(new BoostThread(this, simulator)).start();
+                new Thread(new BoostThread(this, simulator, "BOOST")).start();
                 boostRequestResponse.clear();
+            }
+            else //quando ho visto che non ho abbastanza OK, faccio partire il thread che mi chiama dopo 30 secondi
+                new Thread(new BoostThread(this, null, "SLEEP" )).start();
+        }
+    }
+
+    public synchronized void checkNodeAlive(){
+
+        ArrayList<Integer> index_ht = new ArrayList<Integer>();
+
+        if(requestForBoost) //se sono ancora in attesa di entrare in boost, non entro nell'if se ho già soddisfatto la richiesta
+        {
+            for (Integer index : boostRequestResponse.keySet())
+                if(boostRequestResponse.get(index).equals("WAIT"))
+                    index_ht.add(index);
+
+            //prendo la lista di valori AGGIORNATA synch che non mi hanno restituito OK, ma che hanno restituito WAIT
+            for (int index:index_ht)
+            {
+                final ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", house_list.get(index).port).usePlaintext(true).build();
+                HouseServiceGrpc.HouseServiceBlockingStub stub = HouseServiceGrpc.newBlockingStub(channel);
+                Join join_m = null;
+
+                try
+                {
+                    join_m= stub.checkConnection(join_m);
+                }
+                catch (StatusRuntimeException e){
+                    System.err.println("CASA "+house_list.get(index).id+" NON RAGGIUNGIBILE");
+                    //Dato che il nodo che non mi ha risposto con OK, ma con WAIT, sembra morto, aggiorno il mio dato per poter iniziare il boost
+                    checkPermission(index, "OK");
+                }
+                if (join_m!=null) //ha successo la comunicazione
+                    System.err.println("Si era perso un messaggio con casa "+house_list.get(index).id+", la casa è ancora attiva");
+
+                channel.shutdown();
             }
         }
     }
+
   // ---------------------------------------------------Quando rispondo per l'uso del boost (CLIENT)
   public synchronized boolean reBoost(int id, long timestamp) {
         if (getBoost() || (requestForBoost && timestampRequest < timestamp)) {

@@ -5,6 +5,7 @@ import message_measurement.House;
 import simulation_src_2019.SmartMeterSimulator;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class HouseAPP {
     static Scanner input;
@@ -111,12 +112,13 @@ public class HouseAPP {
                 }
 
         }while (!b);
+        System.err.println("\nChiusura applicazione");
         //fine main
     }
 
     public static void close(){
-        System.err.println("CHIUSURA APP");
 
+        System.err.println("Inizio procedura per la chiusura controllata dell' applicazione");
         node.leave();
 
         sm.stopMeGently();
@@ -124,6 +126,14 @@ public class HouseAPP {
         toREST.close();
 
         b=true;
+
+        try {
+          node.server.server.shutdown().awaitTermination(20, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            System.err.println("ERRORE NELLO SHUTDOWN DEL SERVER");
+            //node.server.server.shutdownNow();
+        }
+
         input.close();
     }
 }

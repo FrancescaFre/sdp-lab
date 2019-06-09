@@ -8,7 +8,7 @@ import java.io.IOException;
 
 public class HouseServer implements Runnable {
 
-    Server server;
+    public Server server;
     public HouseServer(HouseNode node, int port){
         server = ServerBuilder.forPort(port).addService(new HouseService(node)).build();
 
@@ -31,5 +31,7 @@ public class HouseServer implements Runnable {
             System.err.print("Errore nell'awaitTerminator ----------");
             e.printStackTrace();
         }
+
+       System.out.println("Chiusura del listener grpc avvenuta con successo");
     }
 }

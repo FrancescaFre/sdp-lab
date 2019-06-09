@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-import javax.swing.plaf.synth.SynthScrollBarUI;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -80,7 +79,7 @@ public class HouseCli{
             return false;
         }
 
-        System.out.println("Rimozione avvenuta con successo");
+        System.out.println("Rimozione dal server avvenuta con successo");
         return true;
     }
 

@@ -8,6 +8,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
+import java.util.concurrent.TimeUnit;
+
 public class HouseBroadcast implements Runnable {
 
     int choose = 0;
@@ -32,7 +34,7 @@ public class HouseBroadcast implements Runnable {
     public HouseBroadcast(int port, Election message, StreamObserver so)
     {
         streamObserver = so;
-        channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
+        //channel =  ManagedChannelBuilder.forAddress("localhost", port).usePlaintext(true).build();
         election = message;
         if (message.getType().equals("ELECTION"))
             choose = 1;
@@ -102,6 +104,13 @@ public class HouseBroadcast implements Runnable {
             case 7: //Notificare a chi ha bisogno del boost
                 HouseServiceGrpc.newStub(channel).boostRelease(boost, streamObserver);
                 break;
+
+        }
+        try {
+            channel.awaitTermination(30,TimeUnit.SECONDS);
+            channel.shutdown();
+        } catch (InterruptedException e) {
+            System.err.println("ERRORE AWAIT TERMINATION");
         }
     }
 }
