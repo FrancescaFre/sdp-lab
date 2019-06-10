@@ -143,13 +143,14 @@ public class HouseCli{
                 return response;
 
             }catch (ProcessingException pe){
-                i++;
+                if(sv_r==null)
+                    i++;
                 System.err.println("Errore di connessione al server REST, tentativo "+i+" di riconnessione");
                 try{
                     TimeUnit.SECONDS.sleep(3);
                 }catch(InterruptedException ie) {ie.getMessage();}
             }
-        }while(i<3 && sv_r!=null); //dopo 3 tentativi, rilascia response null
+        }while(i<3); //dopo 3 tentativi, rilascia response null
         System.err.println("Impossibile contattare il server REST, annullamento richiesta in corso ... ");
 
         return response;

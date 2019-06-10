@@ -124,6 +124,7 @@ public class HouseService extends HouseServiceImplBase{
     @Override
     public void imThePresident(Election request, StreamObserver<Election> responseObserver) {
     if (node.coordinator_id != request.getHouseId()) {
+          System.err.println("Nuovo coordinatore acquisito: il nuovo coordinatore è "+request.getHouseId());
           node.coordinator_id = request.getHouseId(); // memorizzo il nuovo coordinatore
           node.coordinator = false;
           node.inElection = false;

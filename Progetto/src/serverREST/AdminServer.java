@@ -121,7 +121,6 @@ public class AdminServer {
         if (Residence.getInstance().get_mean_stdDeviation(id, n) != null)
             return Response.ok(Residence.getInstance().get_mean_stdDeviation(id, n)).build();
         else return Response.status(Response.Status.NOT_FOUND).entity("Identificativo non trovato, impossibile ottenere le statistiche").build();
-
     }
 
     //---------------------------- Visualizza lista case
@@ -130,7 +129,7 @@ public class AdminServer {
     @Produces({"application/json"})
     public Response getHouseList() {
         if (Residence.getInstance().houses.size() > 0)
-            return Response.ok(Residence.getInstance().houses.values()).build();
+            return Response.ok(Residence.getInstance().get_house()).build();
         else return Response.status(Response.Status.NOT_FOUND).entity("Non sono registrate case nella residenza").build();
     }
 

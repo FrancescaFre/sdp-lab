@@ -10,6 +10,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Hashtable;
 
 @XmlRootElement
@@ -35,6 +36,10 @@ public class Residence {
         if (instance==null)
             instance=new Residence();
         return instance;
+    }
+
+    public synchronized ArrayList<House> get_house(){
+        return new ArrayList<House>(houses.values());
     }
 
     //operazioni gestione case

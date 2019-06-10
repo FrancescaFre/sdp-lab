@@ -28,7 +28,7 @@ public class BoostThread implements Runnable {
                 node.setBoost(true);
 
                 simulator.boost();
-                TimeUnit.SECONDS.sleep(10);
+                TimeUnit.SECONDS.sleep(30);
 
                 System.err.println("----------------------------------------------- Fine BOOST per il nodo " + node.id);
                 node.setBoost(false);
@@ -40,7 +40,7 @@ public class BoostThread implements Runnable {
 
             try {
                 TimeUnit.SECONDS.sleep(30);
-                node.checkNodeAlive();
+              //  node.checkNodeAlive();
             } catch (InterruptedException e) {
                 System.err.println("ERRORE");
                 e.printStackTrace();

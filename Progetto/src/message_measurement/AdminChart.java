@@ -7,6 +7,7 @@ import org.knowm.xchart.style.lines.SeriesLines;
 import org.knowm.xchart.style.markers.SeriesMarkers;
 import simulation_src_2019.Measurement;
 
+import javax.swing.*;
 import java.awt.*;
 import java.sql.Array;
 import java.sql.Timestamp;
@@ -26,7 +27,7 @@ public class AdminChart{
 
         DateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
         Date date = null;
-        for (int i = 1; i <measurements.size(); i++) {
+        for (int i = 0; i <measurements.size(); i++) {
 
             date = new Date(measurements.get(i).timestamp);
             xData.add(date);
@@ -58,6 +59,7 @@ public class AdminChart{
         series.setMarker(SeriesMarkers.CIRCLE);
         series.setLineStyle(SeriesLines.SOLID);
 
-        new SwingWrapper<XYChart>(chart).displayChart();
+        new SwingWrapper<XYChart>(chart).displayChart().setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
+
     }
 }

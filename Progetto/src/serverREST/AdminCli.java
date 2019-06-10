@@ -8,6 +8,7 @@ import org.glassfish.jersey.client.ClientConfig;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -167,10 +168,11 @@ public class AdminCli {
 
         System.out.println("Raccolta di "+ values.length+" valori della casa con identificativo "+input[0]);
         for (SensorMeasurement sv : values){
-            System.out.println("<"+qtPrint(sv.timestamp)+">: "+sv.value);
+            System.out.println("<"+qtPrint(sv.timestamp)+">: "+String.format("%1.17f",sv.value)+ " kW");
         }
 
-        AdminChart.plot(new ArrayList<SensorMeasurement>(Arrays.asList(values)), Integer.parseInt(input[0]));
+
+            AdminChart.plot(new ArrayList<SensorMeasurement>(Arrays.asList(values)), Integer.parseInt(input[0]));
     }
 
     //-------------------------------- Statistica residenza
@@ -196,9 +198,10 @@ public class AdminCli {
 
         System.out.println("Raccolta di "+values.length+" valori della residenza");
         for (SensorMeasurement sv : values){
-            System.out.println("<"+qtPrint(sv.timestamp)+">: "+sv.value);
+            System.out.println("<"+qtPrint(sv.timestamp)+">: "+String.format("%1.17f",sv.value)+ " kW");
         }
-        AdminChart.plot(new ArrayList<SensorMeasurement>(Arrays.asList(values)), -1);
+
+            AdminChart.plot(new ArrayList<SensorMeasurement>(Arrays.asList(values)), -1);
     }
 
     //-------------------------------- Media e DevStandard di una casa
@@ -342,9 +345,9 @@ public class AdminCli {
 
 
     private static String qtPrint(long time){
-        Date date = new Date(time);
-        DateFormat formatter = new SimpleDateFormat("HH:mm:ss.SSS");
-        formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+        Timestamp ts = new Timestamp(time);
+        DateFormat formatter = new SimpleDateFormat("dd/mm/yy HH:mm:ss");
         return formatter.format(time);
     }
 }

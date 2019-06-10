@@ -94,9 +94,9 @@ public class HouseNode {
         Timestamp ts = new Timestamp(time);
         DateFormat formatter = new SimpleDateFormat("dd/mm/yy HH:mm:ss");
         if(residence_val)
-            System.out.println("<Residence : " + formatter.format(ts) + "> Valore consumo " + val +" Watt");
+           System.out.println("<Residence : " + formatter.format(ts) + "> Valore consumo \t " +String.format("%1.17f",val)+ " kW");
         else
-            System.out.println("<House-" + id + " : " + formatter.format(ts) + " : "+(last_measurement_house_to_rest) +"> Valore consumo " + val +" Watt");
+            System.out.println("<House-" + id + " : " + formatter.format(ts) + " : "+(last_measurement_house_to_rest) +"> Valore consumo \t " + String.format("%1.17f",val)+ " kW");
     }
 
     //-------------------- INVIO DEI VALORI al server REST
@@ -123,7 +123,7 @@ public class HouseNode {
         {
             send_HouseStat();
         }else{
-            System.err.println("Inizio elezione, coordinatore assente");
+
             startElection();
             send_HouseStat();
         }
@@ -218,8 +218,9 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                System.err.println("ERROR - JOIN-CLIENT: "+throwable.getMessage() );
-//                throwable.printStackTrace();
+                //System.err.println("ERROR - JOIN-CLIENT: "+throwable.getMessage() );
+                System.err.println("ERROR - JOIN-CLIENT: impossibile comunicare con un nodo");
+
             }
 
             @Override
@@ -277,7 +278,9 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                System.err.println("ERROR - LEAVE-CLIENT: "+throwable.getMessage() );
+                StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
+                if (statusRuntimeException.getStatus().getCode().equals(Status.Code.UNAVAILABLE))
+                      System.err.println("ERROR - LEAVE-CLIENT: impossibile comunicare con un nodo" );
                // throwable.printStackTrace();
             }
 
@@ -347,7 +350,6 @@ public class HouseNode {
                     // se è a true, significa che è stato rimosso anche il coordinatore ed è da
                     // inviare nuovamente la media
                     {
-                        System.err.println(" ---------------- Dentro checkMiss");
                         startElection(); // quindi si elegge un nuovo coordinatore
                         send_HouseStat(); // si manda la media
                     }
@@ -368,7 +370,6 @@ public class HouseNode {
                     // se è a true, significa che è stato rimosso anche il coordinatore ed è da
                     // inviare nuovamente la media
                     {
-                        System.err.println(" ---------------- Dentro checkMiss");
                         startElection(); // quindi si elegge un nuovo coordinatore
                         send_HouseStat(); // si manda la media
                     }
@@ -431,8 +432,12 @@ public class HouseNode {
                     System.err.println("CASA "+house_list.get(i).id+" NON RAGGIUNGIBILE - Rimozione in corso");
                     if(i == coordinator_id) //se l'id che ho provato è il coordinatore, nuova elezione
                         return_bool = true;
+
                     toRest.rm_from_server(house_list.get(i)); //mi occupo anche di segnalare al server rest che ci sono case rimosse
                     house_list.remove(i);
+
+                    if(requestForBoost)
+                        checkPermission(i,"OK");
                 }
                 if (join_m!=null) //ha successo la comunicazione
                     System.err.println("Si era perso un messaggio con casa "+house_list.get(i).id+", la casa è ancora attiva");
@@ -493,7 +498,9 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                System.err.println("\nERROR - SEND_DIFFUSE_STAT-CLIENT: " + throwable.getMessage());
+                StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
+                if (statusRuntimeException.getStatus().getCode().equals(Status.Code.UNAVAILABLE))
+                    System.err.println("\nERROR - SEND_DIFFUSE_STAT-CLIENT: impossibile comunicare con un nodo ");
             }
 
             @Override
@@ -542,11 +549,12 @@ public class HouseNode {
                 @Override
                 public void onError(Throwable throwable) {
                     StatusRuntimeException statrun = (StatusRuntimeException) throwable;
-                    System.err.println("ERROR - ELECTION-CLIENT: "+statrun.getStatus() );
                 //devo gestire la situazione in cui ho n nodi più grandi di me e nessuno risponde
                     if (statrun.getStatus().equals(Status.UNAVAILABLE))
+                    {
+                      System.err.println("ERROR - ELECTION-CLIENT: impossibile comunicare con un nodo");
                       synchronized (HouseNode.this){ i[0]++; }
-
+                    }
                     if(i[0]==index.size())//nessuno ha risposto
                         imThePresident();
                 }
@@ -570,6 +578,7 @@ public class HouseNode {
         coordinator_id = Integer.parseInt(id);
         coordinator = true;
 
+        inElection = false;
         Election.Builder president = Election.newBuilder();
         president.setType("PRESIDENT");
         president.setHouseId(coordinator_id);
@@ -583,7 +592,9 @@ public class HouseNode {
             public void onError(Throwable throwable) {
              //   if(throwable.getMessage().toUpperCase().matches("(.*)without a response(.*)"))
                 System.out.println("Non ci sono case con cui comunicare");
-                System.err.println("ERROR - PRESIDENT-CLIENT "+throwable.getMessage() );
+                StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
+                if (statusRuntimeException.getStatus().getCode().equals(Status.Code.UNAVAILABLE))
+                   System.err.println("ERROR - PRESIDENT-CLIENT: impossibile comunicare con un nodo");
             }
 
             @Override
@@ -641,7 +652,9 @@ public class HouseNode {
             public void onNext(Boost boost) { }
 
             @Override
-            public void onError(Throwable throwable) { }
+            public void onError(Throwable throwable) {
+
+            }
 
             @Override
             public void onCompleted() { }
@@ -671,43 +684,44 @@ public class HouseNode {
                 new Thread(new BoostThread(this, simulator, "BOOST")).start();
                 boostRequestResponse.clear();
             }
-            else //quando ho visto che non ho abbastanza OK, faccio partire il thread che mi chiama dopo 30 secondi
-                new Thread(new BoostThread(this, null, "SLEEP" )).start();
+//            else //quando ho visto che non ho abbastanza OK, faccio partire il thread che mi chiama dopo 30 secondi
+//                new Thread(new BoostThread(this, null, "SLEEP" )).start();
         }
     }
 
+
     public synchronized void checkNodeAlive(){
-
-        ArrayList<Integer> index_ht = new ArrayList<Integer>();
-
-        if(requestForBoost) //se sono ancora in attesa di entrare in boost, non entro nell'if se ho già soddisfatto la richiesta
-        {
-            for (Integer index : boostRequestResponse.keySet())
-                if(boostRequestResponse.get(index).equals("WAIT"))
-                    index_ht.add(index);
-
-            //prendo la lista di valori AGGIORNATA synch che non mi hanno restituito OK, ma che hanno restituito WAIT
-            for (int index:index_ht)
-            {
-                final ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", house_list.get(index).port).usePlaintext(true).build();
-                HouseServiceGrpc.HouseServiceBlockingStub stub = HouseServiceGrpc.newBlockingStub(channel);
-                Join join_m = null;
-
-                try
-                {
-                    join_m= stub.checkConnection(join_m);
-                }
-                catch (StatusRuntimeException e){
-                    System.err.println("CASA "+house_list.get(index).id+" NON RAGGIUNGIBILE");
-                    //Dato che il nodo che non mi ha risposto con OK, ma con WAIT, sembra morto, aggiorno il mio dato per poter iniziare il boost
-                    checkPermission(index, "OK");
-                }
-                if (join_m!=null) //ha successo la comunicazione
-                    System.err.println("Si era perso un messaggio con casa "+house_list.get(index).id+", la casa è ancora attiva");
-
-                channel.shutdown();
-            }
-        }
+//    {
+//        ArrayList<Integer> index_ht = new ArrayList<Integer>();
+//
+//        if(requestForBoost) //se sono ancora in attesa di entrare in boost, non entro nell'if se ho già soddisfatto la richiesta
+//        {
+//            for (Integer index : boostRequestResponse.keySet())
+//                if(boostRequestResponse.get(index).equals("WAIT"))
+//                    index_ht.add(index);
+//
+//            //prendo la lista di valori AGGIORNATA synch che non mi hanno restituito OK, ma che hanno restituito WAIT
+//            for (int index:index_ht)
+//            {
+//                final ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", house_list.get(index).port).usePlaintext(true).build();
+//                HouseServiceGrpc.HouseServiceBlockingStub stub = HouseServiceGrpc.newBlockingStub(channel);
+//                Join join_m = null;
+//
+//                try
+//                {
+//                    join_m= stub.checkConnection(join_m);
+//                }
+//                catch (StatusRuntimeException e){
+//                    System.err.println("CASA "+house_list.get(index).id+" NON RAGGIUNGIBILE");
+//                    //Dato che il nodo che non mi ha risposto con OK, ma con WAIT, sembra morto, aggiorno il mio dato per poter iniziare il boost
+//                    checkPermission(index, "OK");
+//                }
+//                if (join_m!=null) //ha successo la comunicazione
+//                    System.err.println("Si era perso un messaggio con casa "+house_list.get(index).id+", la casa è ancora attiva");
+//
+//                channel.shutdown();
+//            }
+//        }
     }
 
   // ---------------------------------------------------Quando rispondo per l'uso del boost (CLIENT)
