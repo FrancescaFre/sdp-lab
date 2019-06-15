@@ -15,6 +15,7 @@ public class HouseMeasurement implements Buffer {
     int overlap = 50;
     int mod_size = (sliding_window_size * overlap)/100;
 
+
     ArrayList<Measurement> recorded_values = new ArrayList<Measurement>();
     HouseNode house;
 

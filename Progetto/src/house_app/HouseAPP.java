@@ -14,6 +14,7 @@ public class HouseAPP {
     static House house= null;
     static HouseNode node = null;
     static boolean b = false;
+    static HouseMeasurement measurement= null;
 
     public static void main (String[] argv){
 
@@ -65,7 +66,7 @@ public class HouseAPP {
         node = new HouseNode(house_list, toREST, house);
 
         //creo il misuratore
-        HouseMeasurement measurement = new HouseMeasurement(node);
+        measurement = new HouseMeasurement(node);
 
         //avvio il simulatore
         sm = new SmartMeterSimulator(measurement);
@@ -75,15 +76,15 @@ public class HouseAPP {
         //-------------------------------------------------Inizio dell'interfaccia utente
         b=false;
         String ris;
-        do
+        while(!b)
         {
             System.out.println(
                     "1 - Rimuoviti dalla lista delle case dal server e chiudi l'applicazione\n"+
                     "2 - Richiesta BOOST"
 
-                    +"\n\n---- TESTING ----"
-                    +"3- leggi il coordinatore e vedi se sei coordinatore"
-                    +"4 - fai partire l'elezione"
+                    +"\n\n---- FEATURE ----"
+                    +"\n3 - Leggi il coordinatore e vedi se sei coordinatore"
+                    +"\n4 - Fai partire l'elezione"
                     +" "
 
             );
@@ -91,9 +92,9 @@ public class HouseAPP {
             ris = null;
             try{
                 ris = input.nextLine();
-            }catch (IllegalStateException is){ b = true; ris="5";}
+            }catch (IllegalStateException is){ b = true; ris="5"; return;}
 
-            if(ris.matches("^\\d+$"))
+            if(ris.matches("^\\d+$") && !b)
                 switch (Integer.parseInt(ris))
                 {
                     case 1://chiudi la sessione - Leave
@@ -103,7 +104,7 @@ public class HouseAPP {
                             node.boost();
                             break;
                     case 3://leggi il coordinatore
-                            System.out.println("Questa casa con id " +node.id+ "\nha come coordinatore: "+node.coordinator_id);
+                            System.out.println("Questa casa con id <" +node.id+ "> e ha come coordinatore: <"+node.coordinator_id+">");
                             break;
                     case 4: //partire un'elezione
                             node.startElection();
@@ -111,17 +112,18 @@ public class HouseAPP {
                     case 5: break;
                 }
 
-        }while (!b);
-        System.err.println("\nChiusura applicazione");
+        };
+        System.err.println("\nChiusura applicazione, attendere 30 secondi ...");
         //fine main
     }
 
     public static void close(){
 
         System.err.println("Inizio procedura per la chiusura controllata dell' applicazione");
-        node.leave();
 
         sm.stopMeGently();
+
+        node.leave();
 
         toREST.close();
 

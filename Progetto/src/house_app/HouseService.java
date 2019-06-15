@@ -58,6 +58,7 @@ public class HouseService extends HouseServiceImplBase{
     @Override
     public void sendStat(Statistic request, StreamObserver<Statistic> response){
          Integer progressive_residence_mean_id = node.res_Mean(request.getHouseId(), request.getMeasurementId(), request.getValue());
+        // Integer progressive_residence_mean_id = node.res_Mean_second(request.getHouseId(), request.getMeasurementId(), request.getValue());
          response.onNext(Statistic.newBuilder().setHouseId(Integer.parseInt(node.id)).build());
 
         response.onCompleted();

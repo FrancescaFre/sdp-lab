@@ -218,9 +218,12 @@ public class HouseNode {
 
             @Override
             public void onError(Throwable throwable) {
-                //System.err.println("ERROR - JOIN-CLIENT: "+throwable.getMessage() );
-                System.err.println("ERROR - JOIN-CLIENT: impossibile comunicare con un nodo");
-
+                StatusRuntimeException statusRuntimeException = (StatusRuntimeException) throwable;
+                if (statusRuntimeException.getStatus().getCode().equals(Status.Code.UNAVAILABLE))
+                {
+                    System.err.println("ERROR - JOIN-CLIENT: impossibile comunicare con un nodo");
+                    maybe_coordinator.add(-1); //se il nodo è morto e non riesce a mandare una risposta, si setta -1
+                }
             }
 
             @Override
@@ -267,6 +270,9 @@ public class HouseNode {
 
         Leave.Builder leave = Leave.newBuilder();
 
+        if(house_list.containsKey(Integer.parseInt(id)))
+            house_list.remove(Integer.parseInt(id));
+
         leave.setId(Integer.parseInt(id));
         leave.setCoordinator(coordinator);
 
@@ -288,9 +294,10 @@ public class HouseNode {
             public void onCompleted() { }
         };
 
-        for (House h : house_list.values())
-            if(h.id != Integer.parseInt(id))
-            new Thread(new HouseBroadcast(h.port, leave_message, so_leave)).start();
+        if(house_list.size()>0)
+            for (House h : house_list.values())
+                if(h.id != Integer.parseInt(id))
+                new Thread(new HouseBroadcast(h.port, leave_message, so_leave)).start();
         System.out.println("Uscita dalla rete delle case avvenuta con successo");
     }
 
@@ -463,7 +470,6 @@ public class HouseNode {
 
         //ho le misurazioni di tutte le case, faccio la media e inivio.
         if (buffer.size() >= house_list.size()) {
-
             Double mean = 0d;
             for (Double d : buffer.values())
                 mean += d;
@@ -472,13 +478,41 @@ public class HouseNode {
             buffer.clear();
 
             res_values.add(new Measurement(((last_measurement_resident_to_rest + 1)+ ""), null, mean, System.currentTimeMillis()));
-
             //infine mando al rest i dati della media e dal qui anche ai nodi
             send_res_values();
             return last_measurement_resident_to_rest;
         }
         return null; //non ho abbastanza valori per fare la media
     }
+
+    Hashtable<Integer, ArrayList<Double>> values_container = new Hashtable<Integer, ArrayList<Double>>();
+    Hashtable<Integer, Double> mean_container = new Hashtable<Integer, Double>();
+    public synchronized Integer res_Mean_second(int house_id, int measure_id, Double measure){
+        if(values_container.containsKey(house_id))
+            values_container.get(house_id).add(measure);
+        else values_container.put(house_id, new ArrayList<Double>());
+
+        if(!mean_container.containsKey(house_id))
+            mean_container.put(house_id, measure);
+
+        Double mean = 0d;
+        if (mean_container.size() >= house_list.size()){
+            for (Double d : mean_container.values())
+                mean += d;
+
+            mean /= mean_container.size();
+            mean_container.clear();
+
+
+            res_values.add(new Measurement(((last_measurement_resident_to_rest + 1)+ ""), null, mean, System.currentTimeMillis()));
+            //infine mando al rest i dati della media e dal qui anche ai nodi
+            send_res_values();
+            return last_measurement_resident_to_rest;
+        }
+
+        return null;
+    }
+
 
     public void send_Res_Stat(){
         Measurement m = res_values.get(res_values.size()-1);

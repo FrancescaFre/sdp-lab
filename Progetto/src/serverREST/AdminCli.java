@@ -114,6 +114,7 @@ public class AdminCli {
                 case 6:
                     close(client);
                     return;
+
             }
             select = 0;
         }
